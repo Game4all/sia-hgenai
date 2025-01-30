@@ -1,0 +1,6 @@
+
+# fichiers journaaux
+*.log
+
+# fichier de variables d'environement
+.env
