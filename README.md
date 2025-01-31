@@ -24,4 +24,11 @@ bin/run.sh
 bin/run.bat
 ```
 
+Création du `.env` pour stocker les clées AWS
+
+```dotenv
+AWS_ACCESS_KEY_ID=<ID CLEF AWS>
+AWS_SECRET_ACCESS_KEY=<SECRET CLEF AWS>
+```
+
 
