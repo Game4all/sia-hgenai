@@ -4,4 +4,6 @@
 
 # fichier de variables d'environement
 .env
+
+# environement virtuel
 .venv
