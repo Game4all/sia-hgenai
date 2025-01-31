@@ -7,3 +7,5 @@
 
 # environement virtuel
 .venv
+
+__pycache__

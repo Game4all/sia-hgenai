@@ -11,6 +11,9 @@
 
 - Requiert **Python 3.11+**
 
+
+APPELEZ `from dotenv import load_dotenv` POUR CHARGER LES VARIABLES DU .dotenv
+
 Executer le script `run.sh` (ou `run.bat`) pour mettre en place l'environnement et lancer l'application
 
 ```bash
