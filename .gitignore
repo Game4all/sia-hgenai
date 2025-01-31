@@ -4,3 +4,4 @@
 
 # fichier de variables d'environement
 .env
+.venv
