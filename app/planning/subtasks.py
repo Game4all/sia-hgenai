@@ -20,7 +20,7 @@ class SubTask(BaseModel):
 def validate_user_request_template(user_request: str, few_shot_examples: Optional[List[Dict[str, Any]]] = None) -> str:
     """
     Vérifie que la requête utilisateur a pour sujet l'analyse ou l'adaptaion des collectivites francasies face aux  des risques environnementaux. \n
-    Vérifie que le requête utilisateur parle des risques environnementaux en général ou alors contient au moins un des risques ou catégories de risques suivants :\n"
+    Vérifie que le requête utilisateur parle des risques physique ou de transition environnementaux en général ou alors contient au moins un des risques ou catégories de risques suivants :\n"
     **Risques physiques aigus** :\n"
     - Inondation\n"
     - Feu de forêt\n"
@@ -116,6 +116,14 @@ def validate_user_request(user_request: str, client: WrapperBedrock, model_id: s
             "lieux": ["Paris"],
             "niv_admin": "commune"
         },
+         {
+            "requete": "Rédige un rapport sur les risques dans la région de la Bretagne.",
+            "requete_valide": "true",
+            "message": "Rédige un rapport sur les risques dans la région de la Bretagne.",
+            "risques": [],
+            "lieux": ["Bretagne"],
+            "niv_admin": "région"
+        },
         {
             "requete": "Quelles sont les mesures prises contre les inondtaions à Paris, Bordeaux et Lyon ?",
             "requete_valide": "true",
@@ -141,7 +149,7 @@ def validate_user_request(user_request: str, client: WrapperBedrock, model_id: s
     response_text = response.content[0].text
 
     try:
-        parsed_response = parse_json_response(response.content[0].text)
+        parsed_response = parse_json_response(response_text)
         if isinstance(parsed_response, dict) and {"requete_valide", "message", "risques", "lieux", "niv_admin"} <= parsed_response.keys():
             return parsed_response
         else:
@@ -149,7 +157,7 @@ def validate_user_request(user_request: str, client: WrapperBedrock, model_id: s
     except Exception as e:
         pass
 
-    return {"requete_valide": False, "message": response_text}
+    return parsed_response
 
 
 @prompt_template
@@ -346,6 +354,14 @@ def plan_actions(
                                 "out": "analyze_output"
                             },
                             {
+                                "task": "DATAVIZ",
+                                "description": "Création de visualisations pour illustrer les risques d'inondation à Paris",
+                                "args": {
+                                "in": "analyze_output"
+                                },
+                                "out": "dataviz_output"
+                            },
+                            {
                                 "task": "SYNTHESIZE",
                                 "description": "Synthèse des données et formulation des recommandations sur les inondations à Paris",
                                 "args": {
@@ -445,6 +461,14 @@ def plan_actions(
                             "in": "search_output"
                             },
                             "out": "analyze_output"
+                        },
+                        {
+                            "task": "DATAVIZ",
+                            "description": "Création de visualisations pour représenter les risques de feux de forêt dans l'Essonne",
+                            "args": {
+                            "data": "analyze_output"
+                            },
+                            "out": "dataviz_output"
                         },
                         {
                             "task": "SYNTHESIZE",
