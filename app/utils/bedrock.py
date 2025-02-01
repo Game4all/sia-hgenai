@@ -20,16 +20,16 @@ class ConverseMessage(BaseModel):
     content: list[ConverseMessageContent]
 
     @classmethod
-    def make_user_message(cla, message: str):
-        return cla(role="user", content=[ConverseMessageContent(text=message)])
+    def make_user_message(cls, message: str):
+        return cls(role="user", content=[ConverseMessageContent(text=message)])
 
     @classmethod
-    def make_assistant_message(cla, message: str):
-        return cla(role="assistant", content=[ConverseMessageContent(text=message)])
-
+    def make_assistant_message(cls, message: str):
+        return cls(role="assistant", content=[ConverseMessageContent(text=message)])
+    
     @classmethod
-    def make_system_message(cla, message: str):
-        return cla(role="system", content=[ConverseMessageContent(text=message)])
+    def make_system_message(cls, message: str):
+        return cls(role="user", content=[ConverseMessageContent(text=message)])
 
 
 class WrapperBedrock:
@@ -102,7 +102,7 @@ class WrapperBedrock:
                 "maxTokens": max_tokens,
                 "temperature": temperature,
                 **kwargs
-            },
+            }
         )
 
         # to return str response use response['output']['messages']['content']
@@ -117,7 +117,7 @@ class WrapperBedrock:
 
         return ConverseMessage.model_validate_json(json.dumps(self.converse_raw(model_id, messages, max_tokens, temperature, **kwargs)["output"]["message"]))
 
-    def get_embedding(self, text: str, embed_model_id: str = "amazon.titan-embed-text-v2:0") -> np.ndarray[float]:
+    def get_embedding(self, text: str, embed_model_id: str = "amazon.titan-embed-text-v2:0") -> np.ndarray:
         """
         Récupère l'embedding d'un texte avec Bedrock.
 
