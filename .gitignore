@@ -4,8 +4,7 @@
 
 # fichier de variables d'environement
 .env
-
 # environement virtuel
 .venv
-
+Temp
 __pycache__
