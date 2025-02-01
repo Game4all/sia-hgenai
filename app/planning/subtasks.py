@@ -7,9 +7,10 @@ import logging
 import re
 
 class SubTask(BaseModel):
-    nom: str = Field(..., description="Nom de la sous-tâche")
-    description: str = Field(..., description="Description de la sous-tâche")
+    task: str = Field(..., description="Type de la tâche")
+    description: str = Field(..., description="Description textuelle de la sous-tâche")
     args: Optional[Dict[str, Any]] = Field({}, description="Arguments supplémentaires pour la sous-tâche")
+    out: Optional[str] = Field({}, description="Nom de la variable pour la sortie de la sous-tâche")
 
 
 @prompt_template
@@ -78,7 +79,7 @@ def validate_prompt(prompt: str, client: WrapperBedrock, model_id: str) -> Dict[
     """
     instruction = validate_prompt_template(prompt)
     messages = [ConverseMessage.make_user_message(instruction)]
-    response = client.converse(model_id=model_id, messages=messages)
+    response = client.converse(model_id=model_id, messages=messages, max_tokens=300)
     
     try:
         parsed_response = parse_json_response(response.content[0].text)
@@ -98,43 +99,83 @@ def subtask_prompt_template(user_request: str, few_shot_examples: Optional[List[
     """
     Vous êtes un planificateur de tâches avancé au sein de SFIL, une banque d'investissement spécialisée dans la recherche et l'analyse des documents relatifs à l'adaptation des collectivités aux risques climatiques. Votre tâche consiste à analyser la requête utilisateur et à diviser le processus en sous-tâches clairement définies. Ces sous-tâches doivent être organisées en fonction de l'ordre d'exécution et des dépendances. Elles doivent couvrir les étapes suivantes, qui sont génériques et peuvent varier légèrement selon le cas spécifique :
 
-    1. **Recherche** : Identification et collecte des documents et données pertinentes relatives aux risques climatiques et à l’adaptation des collectivités.
-    2. **Analyse** : Analyse des documents pour comprendre l'impact des risques climatiques sur les collectivités et évaluer les mesures d’adaptation existantes.
-    3. **Visualisation** : Création de visualisations (graphiques, cartes, etc.) permettant de mieux comprendre et communiquer les résultats de l’analyse.
-    4. **Synthèse** : Élaboration d’un rapport détaillé, résumant les résultats de l’analyse et proposant des recommandations adaptées pour les collectivités.
-
-    Chaque sous-tâche doit inclure :
-    - Une **description claire** et précise de l’étape à réaliser.
-    - Un **ordre d'exécution** définissant dans quel ordre les sous-tâches doivent être réalisées.
-    - Une **liste de dépendances** (si applicable) spécifiant les sous-tâches dont celle-ci dépend avant de pouvoir être exécutée.
+    1. **SEARCH_DOCS** : Identification et collecte des documents et données pertinentes relatives aux risques climatiques et à l’adaptation des collectivités.
+    2. **ANALYZE_DOCS** : Analyse des documents pour comprendre l'impact des risques climatiques sur les collectivités et évaluer les mesures d’adaptation existantes.
+    3. **DATAVIZ** : Création de visualisations (graphiques, cartes, etc.) permettant de mieux comprendre et communiquer les résultats de l’analyse.
+    4. **SYNTHESIZE** : Élaboration d’un rapport détaillé, résumant les résultats de l’analyse et proposant des recommandations adaptées pour les collectivités.
 
     La structure du format JSON pour chaque sous-tâche est la suivante :
     {
-        "nom": "<nom de la sous-tâche>",
-        "description": "<description de la sous-tâche>",
+        "task": "<type de la sous-tâche>",
+        "description": "<description textuelle de la sous-tâche>",
         "args": {
             "<argument1>": "<valeur1>",
             "<argument2>": "<valeur2>",
             ...
-        }
+        },
+        "out": "<identifiant unique pour la sortie de la tâche>"
     }
 
-    {% if few_shot_examples %}
     Voici quelques exemples de tâches correctement divisées :
 
-    {% for example in few_shot_examples %}
-    ---
-    **Requête:** {{ example['request'] }}
-    **Sous-tâches générées :**
-    {% for subtask in example['subtasks'] %}
-    - **id :** {{ subtask['id'] }}
-    - **description :** {{ subtask['description'] }}
-    - **dependencies :** {{ subtask.get('dependencies', []) }}
-    - **order :** {{ subtask['order'] }}
-    {% endfor %}
-    {% endfor %}
-    ---
-    {% endif %}
+    Requête: Fais une fiche de synthèse des risques pour la ville de Marseille
+    [{
+      "task": "SEARCH_DOCS",
+      "description": "Recherche de documents pour la ville de Marseille",
+      "args": {
+        "docs": [
+          "dicrim",
+          "pacet",
+          "georisques"
+        ],
+        "location": "Paris"
+      },
+      "out": "search_output"
+    },
+    {
+      "task": "ANALYZE_DOCS",
+      "description": "Analyse des documents pour les risques",
+      "args": {
+        "in": "search_output"
+      },
+      "out": "analyze_out"
+    },
+    {
+      "task": "SYNTHESIZE",
+      "description": "Synthèse des données de risques",
+      "args": {
+        "in": "analyze_out"
+      },
+      "out": "synthesize_out"
+    }]
+    Requête: Fais une fiche de synthèse des risques pour le département de l'isère
+    [{
+      "task": "SEARCH_DOCS",
+      "description": "Recherche de documents pour l'Isère",
+      "args": {
+        "docs": [
+          "ddrm"
+        ],
+        "location": "Isere"
+      },
+      "out": "search_output"
+    },
+    {
+      "task": "ANALYZE_DOCS",
+      "description": "Analyse des documents pour les risques",
+      "args": {
+        "in": "search_output"
+      },
+      "out": "analyze_out"
+    },
+    {
+      "task": "SYNTHESIZE",
+      "description": "Synthèse des données de risques",
+      "args": {
+        "in": "analyze_out"
+      },
+      "out": "synthesize_out"
+    }]
 
     Voici la requête à traiter : \n
 
