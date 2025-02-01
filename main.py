@@ -7,7 +7,7 @@ from app.planning.tasks import search_docs, analyze_documents, synth
 from app.utils.bedrock import WrapperBedrock
 from dotenv import load_dotenv
 
-
+st.set_page_config(layout="wide")
 load_dotenv()
 
 @st.cache_resource
