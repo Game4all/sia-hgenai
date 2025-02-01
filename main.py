@@ -7,8 +7,8 @@ from app.planning.tasks import search_docs, analyze_documents, synth
 from app.utils.bedrock import WrapperBedrock
 from dotenv import load_dotenv
 
-load_dotenv()
 
+load_dotenv()
 
 @st.cache_resource
 def get_bedrock() -> WrapperBedrock:
@@ -20,6 +20,7 @@ def dataviz(exec: AgentExecutor, args: dict) -> None:
     print("DATAVIZ")
     time.sleep(3)
     return None
+
 
 if "messages" not in st.session_state:
     st.session_state["messages"] = [
@@ -41,33 +42,33 @@ if prompt:
 
     bot_reply = chat_messages_container.chat_message("assistant")
 
-    planning_status = bot_reply.status("Préparation")
+    execution_status = bot_reply.status("Préparation")
 
     # récupération du planning de l'agent
     planning = plan_actions(get_bedrock(), validation_model_id="mistral.mistral-large-2407-v1:0",
                             planning_model_id="mistral.mistral-large-2407-v1:0", user_request=prompt)
 
-    if "tasks" in planning:
-        planning_status.write(planning["tasks"])
-        planning_status.update(state="complete")
-
     if "error" in planning:
-        planning_status.update(state="error")
+        execution_status.update(state="error")
         st.session_state["messages"].append(
             {"role": "assistant", "content": "🛑 " + planning["error"]})
         bot_reply.write("🛑 " + planning["error"])
 
     if "tasks" in planning:
+        execution_status.update(
+            label="Execution des tâches ...", state="running")
+
         exec = AgentExecutor(get_bedrock())
         exec.register_task(search_docs)
         exec.register_task(analyze_documents)
         exec.register_task(dataviz)
         exec.register_task(synth)
 
-        for task in exec.execute_tasks(planning["tasks"]):
-            status = bot_reply.status(label=task)
-            status.update(state="complete")
+        for id, task in enumerate(exec.execute_tasks(planning["tasks"])):
+            execution_status.update(
+                label="{} ({} / {})".format(task, id + 1, len(planning["tasks"])))
 
     if "synthesize_output" in exec.outputs:
         bot_reply.write(exec.get_inputs("synthesize_output"))
 
+    execution_status.update(state="complete")
