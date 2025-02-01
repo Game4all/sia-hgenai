@@ -1,14 +1,44 @@
 import time
 import streamlit as st
 from app.planning.subtasks import plan_actions
+from app.planning.executor import AgentExecutor, agent_task
+
 from app.utils.bedrock import WrapperBedrock
 from dotenv import load_dotenv
 
 load_dotenv()
 
+
 @st.cache_resource
 def get_bedrock() -> WrapperBedrock:
     return WrapperBedrock()
+
+
+@agent_task("SEARCH_DOCS")
+def search_docs(exec: AgentExecutor, args: dict) -> None:
+    print("SEARCH_DOCS")
+    time.sleep(1)
+    return {"DOCS": ["salut.pdf", "bite.lol"]}
+
+
+@agent_task("ANALYZE_DOCS")
+def analyze_docs(exec: AgentExecutor, args: dict) -> None:
+    documents = exec.outputs[args["in"]]
+    print(f"ANALYZE_DOCS: {documents}")
+    return None
+
+
+@agent_task("DATAVIZ")
+def dataviz(exec: AgentExecutor, args: dict) -> None:
+    print("DATAVIZ")
+    time.sleep(3)
+    return None
+
+
+@agent_task("SYNTHESIZE")
+def synthesize(exec: AgentExecutor, args: dict) -> None:
+    print("SYNTHESIZE")
+    return None
 
 
 if "messages" not in st.session_state:
@@ -48,7 +78,12 @@ if prompt:
         bot_reply.write("🛑 " + planning["error"])
 
     if "tasks" in planning:
-        for task in planning["tasks"]:
-            statu = bot_reply.status(task.description)
-            time.sleep(1)
-            statu.update(state="complete")
+        exec = AgentExecutor()
+        exec.register_task(search_docs)
+        exec.register_task(analyze_docs)
+        exec.register_task(dataviz)
+        exec.register_task(synthesize)
+
+        for task in exec.execute_tasks(planning["tasks"]):
+            status = bot_reply.status(label=task)
+            status.update(state="complete")

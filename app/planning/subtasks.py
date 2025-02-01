@@ -12,8 +12,8 @@ class SubTask(BaseModel):
                              description="Description textuelle de la sous-tâche")
     args: Optional[Dict[str, Any]] = Field(
         {}, description="Arguments supplémentaires pour la sous-tâche")
-    out: Optional[str] = Field(
-        {}, description="Nom de la variable pour la sortie de la sous-tâche")
+    out: str | None = Field(
+        None, description="Nom de la variable pour la sortie de la sous-tâche")
 
 
 @prompt_template
