@@ -51,7 +51,6 @@ def parse_json_response(response: str) -> dict:
     
     try:
         parsed_response = json.loads(response_text)
+        return parsed_response
     except json.JSONDecodeError:
-        parsed_response = {}
-    
-    return parsed_response
+        return response_text

@@ -7,7 +7,7 @@ import logging
 import re
 
 class SubTask(BaseModel):
-    id: int = Field(..., description="Identifiant unique de la sous-tâche")
+    nom: str = Field(..., description="Nom de la sous-tâche")
     description: str = Field(..., description="Description de la sous-tâche")
     args: Optional[Dict[str, Any]] = Field({}, description="Arguments supplémentaires pour la sous-tâche")
 
@@ -49,7 +49,6 @@ def validate_prompt_template(prompt: str) -> str:
         'risques': ['<risque1 ou catégorie1>', '<risque2 ou catégorie2>', ...],\n"
         'lieu': ['<lieu1>', '<lieu2>'],\n"
         'niv_admin': '<niveau_administratif>',\n"
-        'kwargs': {'<clé1>': '<valeur1>', '<clé2>': '<valeur2>', ...}\n"
     }\n"
     ❌ Sinon : {\n"
         'requete_valide': false,\n"
@@ -95,7 +94,7 @@ def validate_prompt(prompt: str, client: WrapperBedrock, model_id: str) -> Dict[
 
 
 @prompt_template
-def _generate_prompt_template(user_request: str, few_shot_examples: Optional[List[Dict[str, Any]]] = None) -> str:
+def subtask_prompt_template(user_request: str, few_shot_examples: Optional[List[Dict[str, Any]]] = None) -> str:
     """
     Vous êtes un planificateur de tâches avancé au sein de SFIL, une banque d'investissement spécialisée dans la recherche et l'analyse des documents relatifs à l'adaptation des collectivités aux risques climatiques. Votre tâche consiste à analyser la requête utilisateur et à diviser le processus en sous-tâches clairement définies. Ces sous-tâches doivent être organisées en fonction de l'ordre d'exécution et des dépendances. Elles doivent couvrir les étapes suivantes, qui sont génériques et peuvent varier légèrement selon le cas spécifique :
 
@@ -111,8 +110,13 @@ def _generate_prompt_template(user_request: str, few_shot_examples: Optional[Lis
 
     La structure du format JSON pour chaque sous-tâche est la suivante :
     {
-        "id": int,                      # Identifiant unique de la sous-tâche
-        "description": str,             # Description détaillée de la sous-tâche
+        "nom": "<nom de la sous-tâche>",
+        "description": "<description de la sous-tâche>",
+        "args": {
+            "<argument1>": "<valeur1>",
+            "<argument2>": "<valeur2>",
+            ...
+        }
     }
 
     {% if few_shot_examples %}
@@ -135,7 +139,7 @@ def _generate_prompt_template(user_request: str, few_shot_examples: Optional[Lis
     Voici la requête à traiter : \n
 
     **Requête utilisateur :**
-    {{ user_request }} \n
+    {{ user_request["message"] }} \n
 
     Retournez UNIQUEMENT un JSON contenant la liste des sous-tâches sans autre texte.
     """
@@ -161,6 +165,7 @@ def divide_task(prompt: str,
     messages = [ConverseMessage.make_system_message(prompt)]
     while attempt < max_retries:
         try:
+            # TODO : fix subtasks parsing it doesn't return a list of SubTask but only a string subtasks
             llm_response = client.converse(model_id, messages=messages)
             subtasks_data = parse_json_response(llm_response.content[0].text)
             validated_subtasks = [SubTask(**task) for task in subtasks_data]
@@ -188,7 +193,6 @@ def get_subtasks(
     user_request: str,
     few_shot_examples: Optional[List[Dict[str, Any]]] = None,
     max_retries: int = 3,
-    **kwargs: dict
 ) -> List[SubTask]:
     """
     Divise une tâche utilisateur en sous-tâches cohérentes en utilisant WrapperBedrock.
@@ -209,7 +213,7 @@ def get_subtasks(
         return client.converse(model_id=model_id, messages=[ConverseMessage.make_user_message(output['message'])])
         
     # Génération du prompt initial
-    prompt = _generate_prompt_template(user_request=output, few_shot_examples=few_shot_examples)
+    prompt = subtask_prompt_template(user_request=output, few_shot_examples=few_shot_examples)
 
     print(prompt)
 
