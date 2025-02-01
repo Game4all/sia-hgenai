@@ -8,7 +8,6 @@ from duckduckgo_search import DDGS
 import json
 import io
 from googleapiclient.discovery import build
-# import app.utils.format as format
 
 class scrapper:
     def __init__(self, num_results=1,pipe=None,googlecred=None, googleidengin=None):
@@ -62,7 +61,7 @@ class scrapper:
         if(v):
             print(code_insee)
         response = requests.get(f"https://georisques.gouv.fr/api/v1/rapport_pdf?code_insee={code_insee}", stream=True)
-        return {"url":f"https://georisques.gouv.fr/api/v1/rapport_pdf?code_insee={code_insee}","pdf":response}
+        return {"url": f"https://georisques.gouv.fr/api/v1/rapport_pdf?code_insee={code_insee}", "pdf": response.content}
     
     def check_revelence(self,subject,pathpdf,logs=False,v=False):
         if(v):
@@ -73,7 +72,6 @@ class scrapper:
                 print("not enough words, bailout")
             return False
         sample = self.truncate_string(text,10)
-        print(sample)
         messages = [bedrock.ConverseMessage.make_user_message( f"tu vas recevoir un echantillons de text et tu devra me dire seulement \"Oui\" ou \"Non\" si le text est du non sens tel que par exemple <wsefwsefgvygf \n\n voici l'echantillons: {sample}")]
         bedrockapi = bedrock.WrapperBedrock()
         outputs = bedrockapi.converse(self.pipe,messages,4,0)

@@ -1,15 +1,25 @@
 import time
 import streamlit as st
 from app.planning.subtasks import plan_actions
+from app.planning.executor import AgentExecutor, agent_task
+from app.planning.tasks import search_docs, analyze_documents, synth
+
 from app.utils.bedrock import WrapperBedrock
 from dotenv import load_dotenv
 
 load_dotenv()
 
+
 @st.cache_resource
 def get_bedrock() -> WrapperBedrock:
     return WrapperBedrock()
 
+
+@agent_task("DATAVIZ")
+def dataviz(exec: AgentExecutor, args: dict) -> None:
+    print("DATAVIZ")
+    time.sleep(3)
+    return None
 
 if "messages" not in st.session_state:
     st.session_state["messages"] = [
@@ -31,7 +41,7 @@ if prompt:
 
     bot_reply = chat_messages_container.chat_message("assistant")
 
-    planning_status = bot_reply.status("Plannification")
+    planning_status = bot_reply.status("Préparation")
 
     # récupération du planning de l'agent
     planning = plan_actions(get_bedrock(), validation_model_id="mistral.mistral-large-2407-v1:0",
@@ -45,10 +55,19 @@ if prompt:
         planning_status.update(state="error")
         st.session_state["messages"].append(
             {"role": "assistant", "content": "🛑 " + planning["error"]})
-        bot_reply.write(planning["error"])
+        bot_reply.write("🛑 " + planning["error"])
 
     if "tasks" in planning:
-        for task in planning["tasks"]:
-            statu = bot_reply.status(task.description)
-            time.sleep(1)
-            statu.update(state="complete")
+        exec = AgentExecutor(get_bedrock())
+        exec.register_task(search_docs)
+        exec.register_task(analyze_documents)
+        exec.register_task(dataviz)
+        exec.register_task(synth)
+
+        for task in exec.execute_tasks(planning["tasks"]):
+            status = bot_reply.status(label=task)
+            status.update(state="complete")
+
+    if "synthesize_output" in exec.outputs:
+        bot_reply.write(exec.get_inputs("synthesize_output"))
+
