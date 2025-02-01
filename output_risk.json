@@ -1,0 +1,8 @@
+{
+    "lieu": "Paris",
+    "document": {
+        "nom": "DICRIM Paris",
+        "lien": "https://georisques.gouv.fr/dicrim/paris.pdf"
+    },
+    "analyse": "role='assistant' content=[ConverseMessageContent(text=' {\\n    \"risques_identifiés\": [\"Inondation\"],\\n    \"synthèse\": \"Le DICRIM de Paris identifie les risques majeurs, notamment les inondations. Les types d\\'inondations possibles sont les crues lentes et les remontées de nappe. Des mesures d\\'adaptation sont prises, telles que la construction de digues et des plans d\\'évacuation.\",\\n')]"
+}
