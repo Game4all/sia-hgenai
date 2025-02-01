@@ -35,15 +35,16 @@ def prompt_template(func) -> Callable[..., Any]:
     return wrapper
 
 
-def parse_json_response(response: str) -> dict:
+def parse_json_response(response: str):
     """
-    Parse une réponse en JSON.
+    Parse une réponse en JSON, qu'il s'agisse d'un dictionnaire ou d'un tableau.
 
     :param response: Réponse à parser.
-    :return: Réponse parsée en JSON. (dict)
+    :return: Réponse parsée en JSON (dict ou list).
     """
-    json_pattern = r'\{.*\}'
+    json_pattern = r'\[.*\]|\{.*\}'  # Adjusted to capture both array and object patterns
     json_match = re.search(json_pattern, response, re.DOTALL)
+    
     if json_match:
         response_text = json_match.group(0)
     else:
@@ -53,4 +54,4 @@ def parse_json_response(response: str) -> dict:
         parsed_response = json.loads(response_text)
         return parsed_response
     except json.JSONDecodeError:
-        return response_text
+        raise json.JSONDecodeError(f"Failed to parse response as JSON: {response_text}", response_text, 0)
