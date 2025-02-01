@@ -17,7 +17,7 @@ class SubTask(BaseModel):
 def validate_user_request_template(user_request: str, few_shot_examples: Optional[List[Dict[str, Any]]] = None) -> str:
     """
     Vérifie que la requête utilisateur a pour sujet l'analyse ou l'adaptaion des collectivites francasies face aux  des risques environnementaux. \n
-    Vérifie que le requête utilisateur contient au moins un des risques suivants ou catégories de risques :\n"
+    Vérifie que le requête utilisateur parle des risques environnementaux en général ou alors contient au moins un des risques ou catégories de risques suivants :\n"
     **Risques physiques aigus** :\n"
     - Inondation\n"
     - Feu de forêt\n"
@@ -106,6 +106,14 @@ def validate_user_request(user_request: str, client: WrapperBedrock, model_id: s
             "message": "La requête mentionne un lieu en France (Lyon, commune) mais ne fait référence à aucun risque environnemental. Veuillez inclure un risque environnemental pertinent. Par exemple : 'Quels sont les projets d'urbanisation prévus à Lyon pour faire face aux risques d'inondation ?'"
         },
         {
+            "requete": "Fais moi une synthèse des risques environnementaux à Paris.",
+            "requete_valide": "true",
+            "message": "Fais-moi une synthèse des risques environnementaux à Paris.",
+            "risques": [],
+            "lieux": ["Paris"],
+            "niv_admin": "commune"
+        },
+        {
             "requete": "Quelles sont les mesures prises contre les inondtaions à Paris, Bordeaux et Lyon ?",
             "requete_valide": "true",
             "message": "Quelles sont les mesures prises contre les inondations à Paris, Bordeaux et Lyon ?",
@@ -124,7 +132,9 @@ def validate_user_request(user_request: str, client: WrapperBedrock, model_id: s
     ]
     instruction = validate_user_request_template(user_request=user_request, few_shot_examples=few_shot_examples)
     messages = [ConverseMessage.make_user_message(instruction)]
-    response = client.converse(model_id=model_id, messages=messages, max_tokens=1024)
+    response = client.converse(model_id=model_id, messages=messages, max_tokens=300)
+    response_text = response.content[0].text
+    print(response_text)
     
     try:
         parsed_response = parse_json_response(response.content[0].text)
