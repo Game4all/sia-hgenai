@@ -45,7 +45,7 @@ if prompt:
         planning_status.update(state="error")
         st.session_state["messages"].append(
             {"role": "assistant", "content": "🛑 " + planning["error"]})
-        bot_reply.write(planning["error"])
+        bot_reply.write("🛑 " + planning["error"])
 
     if "tasks" in planning:
         for task in planning["tasks"]:
