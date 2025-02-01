@@ -24,11 +24,14 @@ bin/run.sh
 bin/run.bat
 ```
 
-Création du `.env` pour stocker les clées AWS
+Création du `.env` pour stocker les clées AWS et les clées scrapper.
 
 ```dotenv
 AWS_ACCESS_KEY_ID=<ID CLEF AWS>
 AWS_SECRET_ACCESS_KEY=<SECRET CLEF AWS>
 ```
+
+## Architecture
+![a](archi.png)
 
 
