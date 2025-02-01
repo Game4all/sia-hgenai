@@ -4,7 +4,7 @@ from ..utils.format import prompt_template, parse_json_response
 import json
 from ..utils.bedrock import WrapperBedrock, ConverseMessage
 import logging
-import re
+
 
 class SubTask(BaseModel):
     nom: str = Field(..., description="Nom de la sous-tâche")
@@ -13,7 +13,7 @@ class SubTask(BaseModel):
 
 
 @prompt_template
-def validate_prompt_template(prompt: str) -> str:
+def validate_user_request_template(user_request: str, few_shot_examples: Optional[List[Dict[str, Any]]] = None) -> str:
     """
     Vérifie que la requête utilisateur a pour sujet l'analyse ou l'adaptaion des collectivites francasies face aux  des risques environnementaux. \n
     Vérifie que le requête utilisateur contient au moins un des risques suivants ou catégories de risques :\n"
@@ -34,39 +34,48 @@ def validate_prompt_template(prompt: str) -> str:
     - Perte de biodiversité\n"
     - Pollution de l’air, des sols, de l’eau\n"
     - Gestion des déchets\n\n"
+
     De plus, assure-toi qu'un lieu en France est mentionné. Indique également son niveau administratif (commune, département, région, groupement de communes, etc.).\n"
     Si les deux critères sont remplis, corrige l'orthographe et la grammaire si nécessaire et trouve les mots-clés pertinents en plus, comme par exemple la période de temps, le type de lieu (hôpital, école, etc.) \n"
     Si un critère manque, indique précisément ce qui est absent et donne un exemple de requête valide basée sur le prompt. \n"
-    ⚠️ IMPORTANT : Retourne uniquement un JSON **valide** et **parsable**.\n"
-    - AUCUN texte avant ou après le JSON.\n"
-    - NE PAS entourer la réponse avec ```json ou tout autre balisage.\n"
-    - Vérifie que toutes les clés et valeurs sont bien formatées.\n"
-    - Chaque sous-tâche doit inclure les champs obligatoires.\n\n"
-    Retourne un JSON sous la forme suivante :\n"
-    ✅ Si valide : {\n"
-        'requete_valide': true,\n"
-        'message': '<requête reformulée>',\n"
-        'risques': ['<risque1 ou catégorie1>', '<risque2 ou catégorie2>', ...],\n"
-        'lieu': ['<lieu1>', '<lieu2>'],\n"
-        'niv_admin': '<niveau_administratif>',\n"
+    Retourne un JSON sous la forme suivante si la requête est valide : \n"
+
+    {\n"
+        "requete_valide": true,\n"
+        "message": "<requête reformulée>",\n"
+        "risques": ["<risque1 ou catégorie1>", "<risque2 ou catégorie2>", ...],\n"
+        "lieux": ["<lieu1>", "<lieu2>"],\n"
+        "niv_admin": "<niveau_administratif>",\n"
     }\n"
-    ❌ Sinon : {\n"
+    Si la requête n'est pas valide, retourne un JSON sous la forme suivante : \n"
+    {\n"
         'requete_valide': false,\n"
         'message': '<explication du problème>'\n"
     }\n\n"
-    ⚠️ Assure-toi que :\n"
-    - Toutes les clés sont entourées de guillemets doubles (`\"`) pour respecter le format JSON.\n"
-    - Chaque valeur de liste est dans des crochets `[]`.\n"
-    - Pas de virgule en trop après le dernier élément d'un objet ou d'une liste.\n"
-    - Chaque texte de la réponse est bien encodé en UTF-8.\n"
-    
+
+    {% if few_shot_examples %}
+    Voici quelques exemples de requêtes avec leurs résultats de validation : \n
+    {% for example in few_shot_examples %}
+    Requête utilisateur : {{ example["requete"] }}\n
+    Résultat :
+    {
+        "requete_valide": {{ example["requete_valide"] }},
+        "message": "{{ example["message"] }}",
+        "risques": "{{ example["risques"] }}",
+        "lieux": "{{ example["lieux"] }}",
+        "niv_admin": "{{ example["niv_admin"] }}"
+    }\n
+    {% endfor %}
+    {% endif %}
+
     Voici la requête à traiter : \n
-    **Requête utilisateur :** {{ prompt }}
+    **Requête utilisateur :** {{ user_request }} \n
     """
+
     pass
 
 
-def validate_prompt(prompt: str, client: WrapperBedrock, model_id: str) -> Dict[str, Any]:
+def validate_user_request(user_request: str, client: WrapperBedrock, model_id: str) -> Dict[str, Any]:
     """
     Valide une requête utilisateur pour s'assurer qu'elle contient les informations nécessaires.
 
@@ -76,13 +85,51 @@ def validate_prompt(prompt: str, client: WrapperBedrock, model_id: str) -> Dict[
 
     :return: Dictionnaire contenant les informations validées ou un message d'erreur.
     """
-    instruction = validate_prompt_template(prompt)
+    few_shot_examples = [
+        {
+            "requete": "Quels sont les plans d'adaptation de la region Provence-Alpes-Côte d'Azur face aux vague de chaleur et ala sécheresse ?",
+            "requete_valide": "true",
+            "message": "Quels sont les plans d'adaptation de la région Provence-Alpes-Côte d'Azur face aux vagues de chaleur et à la sécheresse ?",
+            "risques": ["Vague de chaleur", "Sécheresse"],
+            "lieux": ["Provence-Alpes-Côte d'Azur"],
+            "niv_admin": "région"
+        },
+        {
+            "requete": "Comment la France gère-t-elle le stress hydrique ?",
+            "requete_valide": "false",
+            "message": "La requête mentionne un risque environnemental (stress hydrique), mais ne précise pas de localisation en France. Veuillez spécifier un lieu comme une commune, un département ou une région. Par exemple : 'Comment la région Occitanie gère-t-elle le stress hydrique ?'"
+        },
+        {
+            "requete": "Quels sont les projets d'urbanisation prévus à Lyon ?",
+            "requete_valide": "false",
+            "message": "La requête mentionne un lieu en France (Lyon, commune) mais ne fait référence à aucun risque environnemental. Veuillez inclure un risque environnemental pertinent. Par exemple : 'Quels sont les projets d'urbanisation prévus à Lyon pour faire face aux risques d'inondation ?'"
+        },
+        {
+            "requete": "Quelles sont les mesures prises contre les inondtaions à Paris, Bordeaux et Lyon ?",
+            "requete_valide": "true",
+            "message": "Quelles sont les mesures prises contre les inondations à Paris, Bordeaux et Lyon ?",
+            "risques": ["Inondation"],
+            "lieux": ["Paris", "Bordeaux", "Lyon"],
+            "niv_admin": "commune"
+        },
+        {
+            "requete": "Comment la métropole de Lyon s'adapte-t-elle à la pollution de l'air ?",
+            "requete_valide": "true",
+            "message": "Comment la métropole de Lyon s'adapte-t-elle à la pollution de l'air ?",
+            "risques": ["Pollution de l’air"],
+            "lieux": ["Métropole de Lyon"],
+            "niv_admin": "groupement de communes"
+        }
+    ]
+    instruction = validate_user_request_template(user_request=user_request, few_shot_examples=few_shot_examples)
     messages = [ConverseMessage.make_user_message(instruction)]
     response = client.converse(model_id=model_id, messages=messages)
+    response_text = response.content[0].text
+    print(response_text)
     
     try:
-        parsed_response = parse_json_response(response.content[0].text)
-        if isinstance(parsed_response, dict) and {"requete_valide", "message", "risques", "lieu", "niv_admin"} <= parsed_response.keys():
+        parsed_response = parse_json_response(response_text)
+        if isinstance(parsed_response, dict) and {"requete_valide", "message", "risques", "lieux", "niv_admin"} <= parsed_response.keys():
             return parsed_response
         else:
             raise json.JSONDecodeError
@@ -189,7 +236,8 @@ def divide_task(prompt: str,
 
 def get_subtasks(
     client: WrapperBedrock,
-    model_id: str,
+    validation_model_id: str,
+    planning_model_id: str,
     user_request: str,
     few_shot_examples: Optional[List[Dict[str, Any]]] = None,
     max_retries: int = 3,
@@ -199,7 +247,8 @@ def get_subtasks(
     Si une erreur est détectée, guide le modèle pour qu'il se corrige et relance la demande.
 
     :param client: Instance de WrapperBedrock pour interagir avec le LLM.
-    :param model_id: ID du modèle Bedrock à utiliser.
+    :param validation_model_id: ID du modèle Bedrock pour la validation de la requête utilisateur.
+    :param planning_model_id: ID du modèle Bedrock pour la division de la tâche en sous-tâches.
     :param user_request: Requête utilisateur à diviser en sous-tâches.
     :param few_shot_examples: Exemples pour le Few-Shot Prompting (optionnel).
     :param max_retries: Nombre maximum de tentatives en cas d'erreur.
@@ -208,16 +257,14 @@ def get_subtasks(
     :return: Liste de sous-tâches validées ou une la tàche initiale si l'échec persiste.
     """
     # Vérification de la requête utilisateur
-    output = validate_prompt(user_request, client, model_id)
+    output = validate_user_request(user_request, client, validation_model_id)
     if not output['requete_valide']:
-        return client.converse(model_id=model_id, messages=[ConverseMessage.make_user_message(output['message'])])
+        return client.converse(model_id=validation_model_id, messages=[ConverseMessage.make_user_message(output['message'])])
         
     # Génération du prompt initial
-    prompt = subtask_prompt_template(user_request=output, few_shot_examples=few_shot_examples)
-
-    print(prompt)
+    subtask_prompt = subtask_prompt_template(user_request=output, few_shot_examples=few_shot_examples)
 
     # Validation de la réponse
-    subtasks = divide_task(prompt, client, "mistral.mistral-large-2407-v1:0", max_retries)
+    subtasks = divide_task(subtask_prompt, client, planning_model_id, max_retries)
 
     return subtasks
