@@ -3,11 +3,8 @@ import os
 from googlesearch import search
 from difflib import SequenceMatcher
 import fitz
-import utils.bedrock as bedrock
-from duckduckgo_search import DDGS
-import json
+from .bedrock import ConverseMessage, WrapperBedrock
 from googleapiclient.discovery import build
-# import app.utils.format as format
 
 class scrapper:
     def __init__(self, num_results=1,pipe=None,googlecred=None, googleidengin=None):
@@ -61,7 +58,7 @@ class scrapper:
         if(v):
             print(code_insee)
         response = requests.get(f"https://georisques.gouv.fr/api/v1/rapport_pdf?code_insee={code_insee}", stream=True)
-        return {"url":f"https://georisques.gouv.fr/api/v1/rapport_pdf?code_insee={code_insee}","pdf":response}
+        return {"url": f"https://georisques.gouv.fr/api/v1/rapport_pdf?code_insee={code_insee}", "pdf": response.content}
     
     def check_revelence(self,subject,pathpdf,logs=False,v=False):
         if(v):
@@ -72,8 +69,8 @@ class scrapper:
                 print("not enough words, bailout")
             return False
         sample = self.truncate_string(text,10)
-        messages = [bedrock.ConverseMessage.make_user_message( f"tu vas recevoir un echantillons de text et tu devra me dire seulement \"Oui\" ou \"Non\" si le text est du non sens tel que par exemple <wsefwsefgvygf \n\n voici l'echantillons: {sample}")]
-        bedrockapi = bedrock.WrapperBedrock()
+        messages = [ConverseMessage.make_user_message( f"tu vas recevoir un echantillons de text et tu devra me dire seulement \"Oui\" ou \"Non\" si le text est du non sens tel que par exemple <wsefwsefgvygf \n\n voici l'echantillons: {sample}")]
+        bedrockapi = WrapperBedrock()
         outputs = bedrockapi.converse(self.pipe,messages,4,0)
         if(v):print(outputs.content[0].text)
         if("Non" in outputs.content[0].text):
@@ -86,7 +83,7 @@ class scrapper:
         if(logs):
             with open(f"{pathpdf}.txt", "w", encoding="utf-8") as f:
                 f.write(text)
-        messages = [bedrock.ConverseMessage.make_user_message(f"tu vas recevoir un text et tu devra me dire seulement \"Oui\" ou \"Non\" si le sujet parle bien de {subject} et non pas par exemple d'outils\n\n voici le text: {text}")]
+        messages = [ConverseMessage.make_user_message(f"tu vas recevoir un text et tu devra me dire seulement \"Oui\" ou \"Non\" si le sujet parle bien de {subject} et non pas par exemple d'outils\n\n voici le text: {text}")]
         outputs = bedrockapi.converse(self.pipe,messages,4,0)
         if(v):print(outputs.content[0].text)
         if("Non" in outputs.content[0].text):

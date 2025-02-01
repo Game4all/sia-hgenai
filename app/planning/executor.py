@@ -1,6 +1,7 @@
 from .subtasks import SubTask
 from typing import Callable
 from functools import wraps
+from ..utils.bedrock import WrapperBedrock
 
 
 def agent_task(name):
@@ -16,11 +17,12 @@ def agent_task(name):
 
 
 class AgentExecutor:
-    def __init__(self):
+    def __init__(self, wrapper: WrapperBedrock):
         # les sorties des différentes tâches
         self.outputs: dict[str, dict] = {}
         # les tâches disponibles dans l'agent
         self.tasks: dict[str, Callable] = {}
+        self.bedrock = wrapper
         pass
 
     def register_task(self, task_callable: Callable) -> None:

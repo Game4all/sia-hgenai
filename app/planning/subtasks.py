@@ -203,6 +203,7 @@ def subtask_prompt_template(user_request: str, few_shot_examples: Optional[List[
             "args": {
                 "docs": {{ doc_mapping[user_request['niv_admin']]['docs'] | tojson }},
                 "sources": {{ doc_mapping[user_request['niv_admin']]['sources'] | tojson }},
+                "lieux" : {{ user_request["lieux"] | join(', ') }}
             },
             "out": "search_output"
         },
@@ -331,7 +332,8 @@ def plan_actions(
                                 "description": "Recherche de documents sur les inondations à Paris",
                                 "args": {
                                 "docs": ["DICRIM", "PLU", "PCS", "PPRi"],
-                                "sources": ["Geoportail", "Georisques", "Gaspar"]
+                                "sources": ["Geoportail", "Georisques", "Gaspar"],
+                                "lieux": "Paris",
                                 },
                                 "out": "search_output"
                             },
@@ -361,7 +363,8 @@ def plan_actions(
                                 "description": "Recherche de documents concernant la sécheresse et les vagues de chaleur en région Provence-Alpes-Côte d'Azur",
                                 "args": {
                                 "docs": ["SRADDET", "SDAGE"],
-                                "sources": ["Ademe", "Régions de France"]
+                                "sources": ["Ademe", "Régions de France"],
+                                "lieux": "Provence-Alpes-Côte d'Azur",
                                 },
                                 "out": "search_output"
                             },
@@ -391,7 +394,8 @@ def plan_actions(
                             "description": "Recherche de documents sur la pollution de l'air dans le département de l'Isère",
                             "args": {
                             "docs": ["DDRM", "PDFCI"],
-                                "sources": ["Gaspar", "Préfecture"]
+                                "sources": ["Gaspar", "Préfecture"],
+                                "lieux": "Isère",
                             },
                             "out": "search_output"
                         },
@@ -429,7 +433,8 @@ def plan_actions(
                             "description": "Recherche de documents sur les feux de forêt pour le groupement de communes de l'Essonne",
                             "args": {
                             "docs": ["PLUI", "PICS", "PAPI"],
-                            "sources": ["Geoportail Urbanisme", "Gaspar", "Ademe"]
+                            "sources": ["Geoportail Urbanisme", "Gaspar", "Ademe"],
+                            "lieux": "Essonne"
                             },
                             "out": "search_output"
                         },
@@ -459,7 +464,8 @@ def plan_actions(
                             "description": "Recherche de documents sur le stress hydrique à Lyon",
                             "args": {
                             "docs": ["DICRIM", "PLU", "PCS", "PPRi"],
-                            "sources": ["Geoportail", "Georisques", "Gaspar"]
+                            "sources": ["Geoportail", "Georisques", "Gaspar"],
+                            "lieux": "Lyon",
                             },
                             "out": "search_output"
                         },
