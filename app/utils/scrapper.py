@@ -15,6 +15,7 @@ class scrapper:
         self.pipe = pipe
         self.cred = googlecred
         self.idengin = googleidengin
+    
     def get_insee_code(self,city_name):
         def similarity(a, b):
             return SequenceMatcher(None, a, b).ratio()
@@ -60,11 +61,7 @@ class scrapper:
         if(v):
             print(code_insee)
         response = requests.get(f"https://georisques.gouv.fr/api/v1/rapport_pdf?code_insee={code_insee}", stream=True)
-        os.makedirs("Temp", exist_ok=True)
-        filename = "Temp/"+f"{city}_georisque_report.pdf"
-        with open(filename, "wb") as file:
-            for chunk in response.iter_content(chunk_size=8192):
-                file.write(chunk)
+        return {"url":f"https://georisques.gouv.fr/api/v1/rapport_pdf?code_insee={code_insee}","pdf":response}
     
     def check_revelence(self,subject,pathpdf,logs=False,v=False):
         if(v):
