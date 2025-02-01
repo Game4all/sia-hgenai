@@ -3,6 +3,10 @@ from ..utils.bedrock import ConverseMessage
 from .executor import agent_task, AgentExecutor
 from ..analysis import analyze_doc_risks, RiskAnalysisOutput
 from ..utils.scrapper import scrapper
+from ..dataviz import generate_visualization
+import matplotlib.pyplot as plt
+import io
+import base64
 
 
 @agent_task("SEARCH_DOCS")
@@ -31,6 +35,46 @@ def analyze_documents(exec: AgentExecutor, args: dict) -> list:
             doc.close()
 
     return analysis
+
+
+@agent_task("DATAVIZ")
+def dataviz(exec: AgentExecutor, args: dict) -> dict:
+    # Récupération des données analysées    
+    risques = args.get("risques", [])
+    lieu = args.get("lieux", "").split(",")[0]
+
+    print(risques)
+    print(lieu)
+
+    # Génération du code de visualisation via le modèle
+    visualization = generate_visualization(exec.bedrock, risques, lieu)
+    visualization_code = visualization.get("visualization_code")
+
+    # Exécution du code Python généré
+    try:
+        # Création d'un espace d'exécution isolé
+        local_env = {}
+        exec(visualization_code, {"plt": plt}, local_env)
+        
+        # Sauvegarde de l'image dans un buffer mémoire
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png')
+        plt.close()
+        buf.seek(0)
+        
+        # Encodage de l'image en base64 pour l'intégration dans la réponse
+        img_base64 = base64.b64encode(buf.read()).decode('utf-8')
+        img_data = f"data:image/png;base64,{img_base64}"
+
+        # Retour de la réponse avec l'image intégrée
+        return {
+            "visualization": img_data,
+            "description": visualization.get("description", ""),
+            "insights": visualization.get("insights", "")
+        }
+    
+    except Exception as e:
+        return {"error": f"Erreur lors de la génération de la visualisation : {str(e)}"}
 
 
 @agent_task("SYNTHESIZE")

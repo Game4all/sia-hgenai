@@ -2,7 +2,7 @@ import time
 import streamlit as st
 from app.planning.subtasks import plan_actions
 from app.planning.executor import AgentExecutor, agent_task
-from app.planning.tasks import search_docs, analyze_documents, synth
+from app.planning.tasks import search_docs, analyze_documents, synth, dataviz
 from app.dataviz import recommend_dataviz
 
 from app.utils.bedrock import WrapperBedrock
@@ -15,13 +15,6 @@ st.set_page_config(layout="wide")
 @st.cache_resource
 def get_bedrock() -> WrapperBedrock:
     return WrapperBedrock()
-
-
-@agent_task("DATAVIZ")
-def dataviz(exec: AgentExecutor, args: dict) -> None:
-    print("DATAVIZ")
-    time.sleep(3)
-    return None
 
 
 if "messages" not in st.session_state:

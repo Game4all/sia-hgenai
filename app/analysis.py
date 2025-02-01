@@ -79,7 +79,7 @@ def analyze_doc_risks(bedrock: WrapperBedrock, doc: str, doc_url: str) -> RiskAn
     """
     Effectue l'analyse de risques sur le document spécifié.
     """
-    analysis_response = bedrock.converse(model_id="mistral.mistral-large-2407-v1:0", messages=[
+    analysis_response = bedrock.converse(model_id="anthropic.claude-3-5-sonnet-20241022-v2:0", messages=[
                                          ConverseMessage.make_user_message(risk_analysis_prompt(RISQUES, doc))], max_tokens=4096)
     out = RiskAnalysisOutput.model_validate(
         parse_json_response(analysis_response.content[0].text))
