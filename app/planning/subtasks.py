@@ -148,7 +148,6 @@ def validate_user_request(user_request: str, client: WrapperBedrock, model_id: s
     
     return {"requete_valide": False, "message": "Oups... Nous n'avons pas pu valider la requête. Veuillez réessayer."}
 
-
 @prompt_template
 def subtask_prompt_template(user_request: str, few_shot_examples: Optional[List[Dict[str, Any]]] = None) -> str:
     """
@@ -171,66 +170,57 @@ def subtask_prompt_template(user_request: str, few_shot_examples: Optional[List[
         "out": "<identifiant unique pour la sortie de la tâche>"
     }
 
-    Voici quelques exemples de tâches correctement divisées :
+    Chaque valeur d'attribut doit être encadrée de guillemets doubles. Très important pour le parser JSON.
 
-    Requête: Fais une fiche de synthèse des risques pour la ville de Marseille
-    [{
-      "task": "SEARCH_DOCS",
-      "description": "Recherche de documents pour la ville de Marseille",
-      "args": {
-        "docs": [
-          "dicrim",
-          "pacet",
-          "georisques"
-        ],
-        "location": "Paris"
-      },
-      "out": "search_output"
-    },
-    {
-      "task": "ANALYZE_DOCS",
-      "description": "Analyse des documents pour les risques",
-      "args": {
-        "in": "search_output"
-      },
-      "out": "analyze_out"
-    },
-    {
-      "task": "SYNTHESIZE",
-      "description": "Synthèse des données de risques",
-      "args": {
-        "in": "analyze_out"
-      },
-      "out": "synthesize_out"
-    }]
-    Requête: Fais une fiche de synthèse des risques pour le département de l'isère
-    [{
-      "task": "SEARCH_DOCS",
-      "description": "Recherche de documents pour l'Isère",
-      "args": {
-        "docs": [
-          "ddrm"
-        ],
-        "location": "Isere"
-      },
-      "out": "search_output"
-    },
-    {
-      "task": "ANALYZE_DOCS",
-      "description": "Analyse des documents pour les risques",
-      "args": {
-        "in": "search_output"
-      },
-      "out": "analyze_out"
-    },
-    {
-      "task": "SYNTHESIZE",
-      "description": "Synthèse des données de risques",
-      "args": {
-        "in": "analyze_out"
-      },
-      "out": "synthesize_out"
-    }]
+
+    {%- set doc_mapping = {
+        "commune": {
+            "docs": ["DICRIM", "PLU", "PCS", "PPRi"],
+            "sources": ["Geoportail", "Georisques", "Gaspar"]
+        },
+        "groupement": {
+            "docs": ["PLUI", "PICS", "PAPI"],
+            "sources": ["Geoportail Urbanisme", "Gaspar", "Ademe"]
+        },
+        "departement": {
+            "docs": ["DDRM", "PDFCI"],
+            "sources": ["Gaspar", "Préfecture"]
+        },
+        "region": {
+            "docs": ["SRADDET", "SDAGE"],
+            "sources": ["Ademe", "Régions de France"]
+        }
+    } %}
+
+    [
+        {
+            "task": "SEARCH_DOCS",
+            "description": "Recherche de documents pour {{ user_request["lieux"] | join(', ') }}",
+            "args": {
+                "docs": {{ doc_mapping[user_request['niv_admin']]['docs'] | tojson }},
+                "sources": {{ doc_mapping[user_request['niv_admin']]['sources'] | tojson }},
+            },
+            "out": "search_output"
+        },
+        {
+            "task": "ANALYZE_DOCS",
+            "description": "Analyse des documents pour {{ user_request['lieux'] | join(', ') }}",
+            "args": {
+                "in": "search_output"
+            },
+            "out": "analyze_out"
+        },
+        {
+            "task": "SYNTHESIZE",
+            "description": "Synthèse des données de risques pour {{ user_request['lieux'] | join(', ') }}",
+            "args": {
+                "in": "analyze_out"
+            },
+            "out": "synthesize_out"
+        }
+    ]
+
+
 
     Voici la requête à traiter : \n
 
@@ -241,6 +231,67 @@ def subtask_prompt_template(user_request: str, few_shot_examples: Optional[List[
     """
     pass
 
+# Voici quelques exemples de tâches correctement divisées :
+#
+#    Requête: Fais une fiche de synthèse des risques pour la ville de Marseille
+#    [{
+#      "task": "SEARCH_DOCS",
+#      "description": "Recherche de documents pour la ville de Marseille",
+#      "args": {
+#        "docs": [
+#          "dicrim",
+#          "pacet",
+#          "georisques"
+#        ],
+#        "location": "Paris"
+#      },
+#      "out": "search_output"
+#    },
+#    {
+#      "task": "ANALYZE_DOCS",
+#      "description": "Analyse des documents pour les risques",
+#      "args": {
+#        "in": "search_output"
+#      },
+#      "out": "analyze_out"
+#    },
+#    {
+#      "task": "SYNTHESIZE",
+#      "description": "Synthèse des données de risques",
+#      "args": {
+#        "in": "analyze_out"
+#      },
+#      "out": "synthesize_out"
+#    }]
+#    Requête: Fais une fiche de synthèse des risques pour le département de l'isère
+#    [{
+#      "task": "SEARCH_DOCS",
+#      "description": "Recherche de documents pour l'Isère",
+#      "args": {
+#        "docs": [
+#          "ddrm"
+#        ],
+#        "location": "Isere"
+#      },
+#      "out": "search_output"
+#    },
+#    {
+#      "task": "ANALYZE_DOCS",
+#      "description": "Analyse des documents pour les risques",
+#      "args": {
+#        "in": "search_output"
+#      },
+#      "out": "analyze_out"
+#    },
+#    {
+#      "task": "SYNTHESIZE",
+#      "description": "Synthèse des données de risques",
+#      "args": {
+#        "in": "analyze_out"
+#      },
+#      "out": "synthesize_out"
+#    }]
+#
 
 def divide_task(prompt: str,
             client: WrapperBedrock,
@@ -274,8 +325,6 @@ def divide_task(prompt: str,
                 messages.append(response)
                 instruction = (
                     "\n\n⚠️ Erreur détectée. Reformulez la réponse au format JSON valide :\n"
-                    "- Chaque sous-tâche doit inclure `id`, `description`, `dependencies` et `order`.\n"
-                    "- Corrigez toute erreur de formatage et réessayez.\n"
                 )
                 messages.append(ConverseMessage.make_system_message(instruction))
             else:
