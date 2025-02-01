@@ -147,12 +147,13 @@ def validate_user_request(user_request: str,
         user_request=user_request, few_shot_examples=few_shot_examples)
     messages = [ConverseMessage.make_user_message(instruction)]
     response = client.converse(
-        model_id=model_id, messages=messages, max_tokens=300)
+        model_id=model_id, messages=messages, max_tokens=512)
     response_text = response.content[0].text
 
     try:
         parsed_response = parse_json_response(response_text)
-        if isinstance(parsed_response, dict) and {"requete_valide", "message", "risques", "lieux", "niv_admin"} <= parsed_response.keys():
+        print(parsed_response)
+        if parsed_response and isinstance(parsed_response, dict) and {"requete_valide", "message", "risques", "lieux", "niv_admin"} <= parsed_response.keys():
             return parsed_response
         else:
             raise Exception
@@ -340,9 +341,6 @@ def plan_actions(
     # Vérification de la requête utilisateur
     output = validate_user_request(user_request, client, validation_model_id)
     if not output['requete_valide']:
-        print(output)
-        print("ok")
-        print(output["message"])
         return {"error": output["message"]}
 
     # Génération du prompt initial
