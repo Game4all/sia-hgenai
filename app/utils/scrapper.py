@@ -6,6 +6,7 @@ import fitz
 import utils.bedrock as bedrock
 from duckduckgo_search import DDGS
 import json
+import io
 from googleapiclient.discovery import build
 # import app.utils.format as format
 
@@ -65,13 +66,14 @@ class scrapper:
     
     def check_revelence(self,subject,pathpdf,logs=False,v=False):
         if(v):
-            print(f"checking {pathpdf} revelence...")
-        text = self.pdf_to_text(pathpdf)
+            print(f"checking revelence...")
+        text = pathpdf
         if(self.word_count(text) < 1000):
             if(v):
                 print("not enough words, bailout")
             return False
         sample = self.truncate_string(text,10)
+        print(sample)
         messages = [bedrock.ConverseMessage.make_user_message( f"tu vas recevoir un echantillons de text et tu devra me dire seulement \"Oui\" ou \"Non\" si le text est du non sens tel que par exemple <wsefwsefgvygf \n\n voici l'echantillons: {sample}")]
         bedrockapi = bedrock.WrapperBedrock()
         outputs = bedrockapi.converse(self.pipe,messages,4,0)
@@ -83,9 +85,6 @@ class scrapper:
         if(v):
             print(f"{outputs.content[0].text}")
         text = self.truncate_string(text,2000)
-        if(logs):
-            with open(f"{pathpdf}.txt", "w", encoding="utf-8") as f:
-                f.write(text)
         messages = [bedrock.ConverseMessage.make_user_message(f"tu vas recevoir un text et tu devra me dire seulement \"Oui\" ou \"Non\" si le sujet parle bien de {subject} et non pas par exemple d'outils\n\n voici le text: {text}")]
         outputs = bedrockapi.converse(self.pipe,messages,4,0)
         if(v):print(outputs.content[0].text)
@@ -101,7 +100,7 @@ class scrapper:
     def find_doc(self,region:str,documents:list,v=False,logs=False) -> list:
         files= []
         for document in documents:
-            query = f"{region} {document} \"{document}\" filetype:pdf"
+            query = f'{region} {document} "{document}" filetype:pdf'
             # results = list(search(query, num_results=self.num_results*2+5))
             service = build(
             "customsearch", "v1", developerKey=self.cred
@@ -120,23 +119,19 @@ class scrapper:
                 if result.endswith(".pdf"):
                     try:
                         response = requests.get(result, stream=True)
-                        files.append({"url":result,"pdf":response})
-                        os.makedirs("Temp", exist_ok=True)
-                        filename = "Temp/"+os.path.basename(result)
-                        with open(filename, "wb") as file:
-                            for chunk in response.iter_content(chunk_size=8192):
-                                file.write(chunk)
-                        stat = self.check_revelence(document,filename,v=v,logs=logs)
+                        if response.status_code != 200 or not response.content.startswith(b"%PDF"):
+                            raise ValueError("Invalid or corrupt PDF file.")
+                        
+                        pdf_document = fitz.open("pdf", io.BytesIO(response.content))
+                        text = "\n".join([page.get_text() for page in pdf_document])
+                        stat = self.check_revelence(document,text,v=v,logs=logs)
                         if(stat):
-                            print(f"PDF downloaded as {filename}")
+                            files.append({"url":result,"pdf":text})
                             counter_result+=1
-                        else:
-                            os.remove(filename)
                         if(counter_result >= self.num_results):
                             break
                     except Exception as e:
-                       print(f"error: {e}")
-                       os.remove(filename)
+                       print(f"error {e}")
             return files
 
 # import torch
