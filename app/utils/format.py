@@ -2,6 +2,8 @@ from functools import wraps
 from inspect import signature, cleandoc
 from jinja2 import Template
 from typing import Callable, Any
+import re
+import json
 
 def prompt_template(func) -> Callable[..., Any]:
     """
@@ -31,3 +33,25 @@ def prompt_template(func) -> Callable[..., Any]:
         return template.render(bound_args.arguments)
 
     return wrapper
+
+
+def parse_json_response(response: str) -> dict:
+    """
+    Parse une réponse en JSON.
+
+    :param response: Réponse à parser.
+    :return: Réponse parsée en JSON. (dict)
+    """
+    json_pattern = r'\{.*\}'
+    json_match = re.search(json_pattern, response, re.DOTALL)
+    if json_match:
+        response_text = json_match.group(0)
+    else:
+        response_text = response
+    
+    try:
+        parsed_response = json.loads(response_text)
+    except json.JSONDecodeError:
+        parsed_response = {}
+    
+    return parsed_response
