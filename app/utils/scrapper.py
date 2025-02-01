@@ -101,7 +101,8 @@ class scrapper:
                 print("found revelent")
             return True
 
-    def find_doc(self,region:str,documents:list,v=False,logs=False):
+    def find_doc(self,region:str,documents:list,v=False,logs=False) -> list:
+        files= []
         for document in documents:
             query = f"{region} {document} \"{document}\" filetype:pdf"
             # results = list(search(query, num_results=self.num_results*2+5))
@@ -122,6 +123,7 @@ class scrapper:
                 if result.endswith(".pdf"):
                     try:
                         response = requests.get(result, stream=True)
+                        files.append({"url":result,"pdf":response})
                         os.makedirs("Temp", exist_ok=True)
                         filename = "Temp/"+os.path.basename(result)
                         with open(filename, "wb") as file:
@@ -138,6 +140,7 @@ class scrapper:
                     except Exception as e:
                        print(f"error: {e}")
                        os.remove(filename)
+            return files
 
 # import torch
 # from transformers import pipeline
