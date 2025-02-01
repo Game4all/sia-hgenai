@@ -139,7 +139,6 @@ def validate_user_request(user_request: str, client: WrapperBedrock, model_id: s
     response = client.converse(
         model_id=model_id, messages=messages, max_tokens=300)
     response_text = response.content[0].text
-    print(response_text)
 
     try:
         parsed_response = parse_json_response(response.content[0].text)
@@ -148,10 +147,9 @@ def validate_user_request(user_request: str, client: WrapperBedrock, model_id: s
         else:
             raise json.JSONDecodeError
     except Exception as e:
-        print(e)
         pass
 
-    return {"requete_valide": False, "message": "Oups... Nous n'avons pas pu valider la requête. Veuillez réessayer."}
+    return {"requete_valide": False, "message": response_text}
 
 
 @prompt_template
@@ -217,6 +215,14 @@ def subtask_prompt_template(user_request: str, few_shot_examples: Optional[List[
             "out": "analyze_out"
         },
         {
+            "task": "DATAVIZ",
+            "description": "Création de visualisations pour {{ user_request['lieux'] | join(', ') }}",
+            "args": {
+                "data": "analyze_out"
+            },
+            "out": "dataviz_out"
+        },
+        {
             "task": "SYNTHESIZE",
             "description": "Synthèse des données de risques pour {{ user_request['lieux'] | join(', ') }}",
             "args": {
@@ -226,7 +232,14 @@ def subtask_prompt_template(user_request: str, few_shot_examples: Optional[List[
         }
     ]
 
+    {% if few_shot_examples %}
+    Voici quelques exemples de tâches correctement divisées : \n
+    {% for example in few_shot_examples %}
+    Requête : {{ example["requete"] }}\n
+    Résultat: {{ example["subtasks"] | tojson }}\n
 
+    {% endfor %}
+    {% endif %}
 
     Voici la requête à traiter : \n
 
@@ -236,68 +249,6 @@ def subtask_prompt_template(user_request: str, few_shot_examples: Optional[List[
     Retournez UNIQUEMENT un JSON contenant la liste des sous-tâches sans autre texte.
     """
     pass
-
-# Voici quelques exemples de tâches correctement divisées :
-#
-#    Requête: Fais une fiche de synthèse des risques pour la ville de Marseille
-#    [{
-#      "task": "SEARCH_DOCS",
-#      "description": "Recherche de documents pour la ville de Marseille",
-#      "args": {
-#        "docs": [
-#          "dicrim",
-#          "pacet",
-#          "georisques"
-#        ],
-#        "location": "Paris"
-#      },
-#      "out": "search_output"
-#    },
-#    {
-#      "task": "ANALYZE_DOCS",
-#      "description": "Analyse des documents pour les risques",
-#      "args": {
-#        "in": "search_output"
-#      },
-#      "out": "analyze_out"
-#    },
-#    {
-#      "task": "SYNTHESIZE",
-#      "description": "Synthèse des données de risques",
-#      "args": {
-#        "in": "analyze_out"
-#      },
-#      "out": "synthesize_out"
-#    }]
-#    Requête: Fais une fiche de synthèse des risques pour le département de l'isère
-#    [{
-#      "task": "SEARCH_DOCS",
-#      "description": "Recherche de documents pour l'Isère",
-#      "args": {
-#        "docs": [
-#          "ddrm"
-#        ],
-#        "location": "Isere"
-#      },
-#      "out": "search_output"
-#    },
-#    {
-#      "task": "ANALYZE_DOCS",
-#      "description": "Analyse des documents pour les risques",
-#      "args": {
-#        "in": "search_output"
-#      },
-#      "out": "analyze_out"
-#    },
-#    {
-#      "task": "SYNTHESIZE",
-#      "description": "Synthèse des données de risques",
-#      "args": {
-#        "in": "analyze_out"
-#      },
-#      "out": "synthesize_out"
-#    }]
-#
 
 
 def divide_task(prompt: str,
@@ -319,7 +270,6 @@ def divide_task(prompt: str,
     messages = [ConverseMessage.make_system_message(prompt)]
     while attempt < max_retries:
         try:
-            # TODO : fix subtasks parsing it doesn't return a list of SubTask but only a string subtasks
             llm_response = client.converse(
                 model_id, messages=messages,  max_tokens=1024)
             subtasks_data = parse_json_response(llm_response.content[0].text)
@@ -372,6 +322,174 @@ def plan_actions(
         return {"error": output["message"]}
 
     # Génération du prompt initial
+    few_shot_examples = [
+        {
+            "requete": "Fais une synthèse des risques d'inondation pour la ville de Paris.",
+            "subtasks": [
+                            {
+                                "task": "SEARCH_DOCS",
+                                "description": "Recherche de documents sur les inondations à Paris",
+                                "args": {
+                                "docs": ["DICRIM", "PLU", "PCS", "PPRi"],
+                                "sources": ["Geoportail", "Georisques", "Gaspar"]
+                                },
+                                "out": "search_output"
+                            },
+                            {
+                                "task": "ANALYZE_DOCS",
+                                "description": "Analyse des documents pour extraire les informations sur les inondations à Paris",
+                                "args": {
+                                "in": "search_output"
+                                },
+                                "out": "analyze_output"
+                            },
+                            {
+                                "task": "SYNTHESIZE",
+                                "description": "Synthèse des données et formulation des recommandations sur les inondations à Paris",
+                                "args": {
+                                "in": "analyze_output"
+                                },
+                                "out": "synthesize_output"
+                            }
+                        ]
+        },
+        {
+            "requete": "Analyse les risques de sécheresse et de vague de chaleur dans la région Provence-Alpes-Côte d'Azur.",
+            "subtasks": [
+                            {
+                                "task": "SEARCH_DOCS",
+                                "description": "Recherche de documents concernant la sécheresse et les vagues de chaleur en région Provence-Alpes-Côte d'Azur",
+                                "args": {
+                                "docs": ["SRADDET", "SDAGE"],
+                                "sources": ["Ademe", "Régions de France"]
+                                },
+                                "out": "search_output"
+                            },
+                            {
+                                "task": "ANALYZE_DOCS",
+                                "description": "Analyse des documents pour identifier les impacts de la sécheresse et des vagues de chaleur dans la région",
+                                "args": {
+                                    "in": "search_output"
+                                },
+                                "out": "analyze_output"
+                            },
+                            {
+                                "task": "SYNTHESIZE",
+                                "description": "Synthèse des données et recommandations pour l'adaptation face à la sécheresse et aux vagues de chaleur",
+                                "args": {
+                                    "in": "analyze_output"
+                                },
+                                "out": "synthesize_output"
+                            }
+                        ]
+        },
+        {
+            "requete": "Prépare un rapport sur la pollution de l'air dans le département de l'Isère.",
+            "subtasks": [
+                        {
+                            "task": "SEARCH_DOCS",
+                            "description": "Recherche de documents sur la pollution de l'air dans le département de l'Isère",
+                            "args": {
+                            "docs": ["DDRM", "PDFCI"],
+                                "sources": ["Gaspar", "Préfecture"]
+                            },
+                            "out": "search_output"
+                        },
+                        {
+                            "task": "ANALYZE_DOCS",
+                            "description": "Analyse des documents pour identifier les sources et conséquences de la pollution de l'air dans l'Isère",
+                            "args": {
+                                "in": "search_output"
+                            },
+                            "out": "analyze_output"
+                        },
+                        {
+                            "task": "DATAVIZ",
+                            "description": "Création de visualisations pour illustrer les données sur la pollution de l'air",
+                            "args": {
+                                "in": "analyze_output"
+                            },
+                            "out": "dataviz_output"
+                        },
+                        {
+                            "task": "SYNTHESIZE",
+                            "description": "Synthèse des informations et élaboration d'un rapport sur la pollution de l'air dans l'Isère",
+                            "args": {
+                                "in": "analyze_output"
+                            },
+                            "out": "synthesize_output"
+                        }
+                        ]   
+        },
+        {
+            "requete": "Réalise une étude des risques de feux de forêt pour le groupement de communes de l'Essonne.",
+            "subtasks": [
+                        {
+                            "task": "SEARCH_DOCS",
+                            "description": "Recherche de documents sur les feux de forêt pour le groupement de communes de l'Essonne",
+                            "args": {
+                            "docs": ["PLUI", "PICS", "PAPI"],
+                            "sources": ["Geoportail Urbanisme", "Gaspar", "Ademe"]
+                            },
+                            "out": "search_output"
+                        },
+                        {
+                            "task": "ANALYZE_DOCS",
+                            "description": "Analyse des documents pour évaluer l'impact et les risques de feux de forêt dans l'Essonne",
+                            "args": {
+                            "in": "search_output"
+                            },
+                            "out": "analyze_output"
+                        },
+                        {
+                            "task": "SYNTHESIZE",
+                            "description": "Synthèse des données et formulation de recommandations pour prévenir les feux de forêt",
+                            "args": {
+                            "in": "analyze_output"
+                            },
+                            "out": "synthesize_output"
+                        }
+                        ]
+        },
+        {
+            "requete": "Élabore un rapport complet incluant des visualisations sur l'impact du stress hydrique dans la ville de Lyon.",
+            "subtasks": [
+                        {
+                            "task": "SEARCH_DOCS",
+                            "description": "Recherche de documents sur le stress hydrique à Lyon",
+                            "args": {
+                            "docs": ["DICRIM", "PLU", "PCS", "PPRi"],
+                            "sources": ["Geoportail", "Georisques", "Gaspar"]
+                            },
+                            "out": "search_output"
+                        },
+                        {
+                            "task": "ANALYZE_DOCS",
+                            "description": "Analyse des documents pour identifier les causes et impacts du stress hydrique à Lyon",
+                            "args": {
+                            "in": "search_output"
+                            },
+                            "out": "analyze_output"
+                        },
+                        {
+                            "task": "DATAVIZ",
+                            "description": "Création de visualisations pour illustrer les données de stress hydrique à Lyon",
+                            "args": {
+                            "data": "analyze_output"
+                            },
+                            "out": "dataviz_output"
+                        },
+                        {
+                            "task": "SYNTHESIZE",
+                            "description": "Synthèse des résultats d'analyse et intégration des visualisations dans un rapport complet sur le stress hydrique à Lyon",
+                            "args": {
+                            "in": "dataviz_output"
+                            },
+                            "out": "synthesize_output"
+                        }
+                        ]
+        }
+    ]
     subtask_prompt = subtask_prompt_template(
         user_request=output, few_shot_examples=few_shot_examples)
 
