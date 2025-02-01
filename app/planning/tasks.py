@@ -3,14 +3,21 @@ from ..utils.bedrock import ConverseMessage
 from .executor import agent_task, AgentExecutor
 from ..analysis import analyze_doc_risks, RiskAnalysisOutput
 from ..utils.scrapper import scrapper
+import dotenv
+import os
 
+dotenv.load_dotenv()
 
 @agent_task("SEARCH_DOCS")
 def search_docs(exec: AgentExecutor, args: dict) -> dict:
-    sc = scrapper(num_results=5)
-    # TODO: harcode sur le georisque pour l'instant
-    results = [sc.repport_geoRisk(city=args["lieux"])]
-    return results
+    sc = scrapper(num_results=1, pipe="mistral.mistral-7b-instruct-v0:2", googlecred=os.environ["SCRAPPER_API"], googleidengin=os.environ["SCRAPPER_ENGINE"])
+    print("begin search georisques")
+    geo_result = sc.repport_geoRisk(city=args["lieux"].split(",")[0])
+    print("begin search docs")
+    docs_results = sc.find_doc(args["lieux"].split(",")[0], args["docs"])
+    if geo_result:
+        docs_results.append(geo_result)
+    return docs_results
 
 
 @agent_task("ANALYZE_DOCS")
@@ -20,17 +27,21 @@ def analyze_documents(exec: AgentExecutor, args: dict) -> dict:
     else:
         files = exec.get_inputs(args["in"])
         analysis = []
-
         for f in files:
-            doc = fitz.open(stream=f["pdf"])
-            doc_text = "\n".join(page.get_text("text") for page in doc)
-
+            if len(f["pdf"]) > 200000:
+                print("Fichier trop lourd")
+                continue
+            print("Analyse de ", f["url"])
+    
             analysis.append(analyze_doc_risks(
-                exec.bedrock, doc_text, f["url"]))
-
-            doc.close()
+                exec.bedrock, f["pdf"], f["url"], "mistral.mistral-large-2407-v1:0", args["risques"]))
 
     return analysis
+
+
+@agent_task("DATAVIZ")
+def dataviz(exec: AgentExecutor, args: dict) -> dict:
+    pass
 
 
 @agent_task("SYNTHESIZE")

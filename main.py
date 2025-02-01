@@ -54,21 +54,22 @@ if prompt:
             {"role": "assistant", "content": "🛑 " + planning["error"]})
         bot_reply.write("🛑 " + planning["error"])
 
-    if "tasks" in planning:
-        execution_status.update(
-            label="Execution des tâches ...", state="running")
-
-        exec = AgentExecutor(get_bedrock())
-        exec.register_task(search_docs)
-        exec.register_task(analyze_documents)
-        exec.register_task(dataviz)
-        exec.register_task(synth)
-
-        for id, task in enumerate(exec.execute_tasks(planning["tasks"])):
+    else:
+        if "tasks" in planning:
             execution_status.update(
-                label="{} ({} / {})".format(task, id + 1, len(planning["tasks"])))
+                label="Execution des tâches ...", state="running")
 
-    if "synthesize_output" in exec.outputs:
-        bot_reply.write(exec.get_inputs("synthesize_output"))
+            exec = AgentExecutor(get_bedrock())
+            exec.register_task(search_docs)
+            exec.register_task(analyze_documents)
+            exec.register_task(dataviz)
+            exec.register_task(synth)
 
-    execution_status.update(state="complete")
+            for id, task in enumerate(exec.execute_tasks(planning["tasks"])):
+                execution_status.update(
+                    label="{} ({} / {})".format(task, id + 1, len(planning["tasks"])))
+
+        if "synthesize_output" in exec.outputs:
+            bot_reply.write(exec.get_inputs("synthesize_output"))
+
+        execution_status.update(state="complete")
