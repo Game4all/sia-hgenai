@@ -3,12 +3,14 @@ import streamlit as st
 from app.planning.subtasks import plan_actions
 from app.planning.executor import AgentExecutor, agent_task
 from app.planning.tasks import search_docs, analyze_documents, synth
+from app.dataviz import recommend_dataviz
 
 from app.utils.bedrock import WrapperBedrock
 from dotenv import load_dotenv
 
-
 load_dotenv()
+
+st.set_page_config(layout="wide")
 
 @st.cache_resource
 def get_bedrock() -> WrapperBedrock:
@@ -69,6 +71,14 @@ if prompt:
                 label="{} ({} / {})".format(task, id + 1, len(planning["tasks"])))
 
     if "synthesize_output" in exec.outputs:
+        st.session_state["messages"].append(
+            {"role": "assistant", "content": exec.get_inputs("synthesize_output")})
         bot_reply.write(exec.get_inputs("synthesize_output"))
+
+
+    if "analyze_output" in exec.outputs:
+        a = recommend_dataviz(get_bedrock(), ["histogramme", "carte", "courbe"], risks=exec.get_inputs("analyze_output"))
+        print(a)
+        bot_reply.write(f"Visualisation la plus adaptée: {a}")
 
     execution_status.update(state="complete")

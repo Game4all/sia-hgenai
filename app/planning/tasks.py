@@ -14,7 +14,7 @@ def search_docs(exec: AgentExecutor, args: dict) -> dict:
 
 
 @agent_task("ANALYZE_DOCS")
-def analyze_documents(exec: AgentExecutor, args: dict) -> dict:
+def analyze_documents(exec: AgentExecutor, args: dict) -> list:
     if "in" not in args:
         return {}
     else:

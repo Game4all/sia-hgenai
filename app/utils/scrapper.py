@@ -3,7 +3,7 @@ import os
 from googlesearch import search
 from difflib import SequenceMatcher
 import fitz
-import utils.bedrock as bedrock
+import app.utils.bedrock as bedrock
 from duckduckgo_search import DDGS
 import json
 import io
