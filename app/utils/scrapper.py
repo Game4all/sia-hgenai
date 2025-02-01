@@ -4,6 +4,8 @@ import fitz
 import app.utils.bedrock as bedrock
 import io
 from googleapiclient.discovery import build
+import json
+import pandas as pd
 
 class scrapper:
     def __init__(self, num_results=1,pipe=None,googlecred=None, googleidengin=None):
@@ -11,6 +13,21 @@ class scrapper:
         self.pipe = pipe
         self.cred = googlecred
         self.idengin = googleidengin
+    
+    def get_accident_history(self,city,v=False):
+        code_insee = self.get_insee_code(city)
+        if(v):
+            print(code_insee)
+        try:
+            response = requests.get(f"https://georisques.gouv.fr/api/v1/gaspar/catnat?rayon=2500&code_insee={code_insee}&page=1&page_size=256", stream=True)
+            text = json.loads(response.content)
+            data = text["data"]
+            df = pd.json_normalize(data)
+            return {"url": f"https://georisques.gouv.fr/api/v1/gaspar/catnat?rayon=2500&code_insee={code_insee}&page=1&page_size=256", "df": df}
+        except Exception as e:
+            if(v):
+                print(f"error {e}")
+            return None
     
     def get_insee_code(self,city_name):
         def similarity(a, b):
