@@ -25,6 +25,8 @@ def dataviz(exec: AgentExecutor, args: dict) -> None:
 if "messages" not in st.session_state:
     st.session_state["messages"] = [
         {"role": "assistant", "content": "Bonjour, je suis Sfil RiskDoc! Prompte moi ce que tu veux ou utilise un bouton pour essayer rapidement"}]
+if "First_Iteration" not in st.session_state:
+    st.session_state["First_Iteration"] = True
 
 chat_container = st.container(height=800)
 chat_messages_container = chat_container.container(height=720)
@@ -32,9 +34,14 @@ chat_messages_container = chat_container.container(height=720)
 # affichage des précédents messages
 for msg in st.session_state["messages"]:
     chat_messages_container.chat_message(msg["role"]).write(msg["content"])
-
-prompt = chat_container.chat_input(placeholder="Entrez votre prompt")
-
+    
+col1,col2,col3 = chat_messages_container.columns((1,1,1))
+if(col1.button("donne moi une étude de danger secheress a laon")):
+    prompt = "donne moi une étude de danger d'innondation a laon"
+if(col2.button("donne moi une étude de danger d'innondation a paris")):
+    prompt = "donne moi une étude de danger sismique a paris"
+if(col3.button("donne moi une étude de danger de feu de forêt à bordeau")):
+    prompt = "donne moi une étude de danger de feu de forêt à bordeau"
 if prompt:
     # add the typed in message
     st.session_state["messages"].append({"role": "user", "content": prompt})
@@ -73,3 +80,5 @@ if prompt:
             bot_reply.write(exec.get_inputs("synthesize_output"))
 
         execution_status.update(state="complete")
+
+prompt = chat_container.chat_input(placeholder="Entrez votre prompt")
