@@ -29,6 +29,9 @@ Création du `.env` pour stocker les clées AWS et les clées scrapper.
 ```dotenv
 AWS_ACCESS_KEY_ID=<ID CLEF AWS>
 AWS_SECRET_ACCESS_KEY=<SECRET CLEF AWS>
+
+SCRAPPER_API = <ID CLEF GOOGLE PROGRAMMABLE SEARCH ENGINE>
+SCRAPPER_ENGINE = <id programmable search engine>
 ```
 
 ## Architecture
