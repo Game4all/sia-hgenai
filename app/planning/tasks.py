@@ -48,7 +48,7 @@ def dataviz(exec: AgentExecutor, args: dict) -> dict:
 def synth(exec: AgentExecutor, args: dict) -> dict:
     data = [d.model_dump_json() for d in exec.get_inputs(args["in"])]
 
-    test_prompt = f"Fais une synthèse globale des risques à partir des données de risques qui sont au format JSON: \n {data}. Pour chaque risque identifié, nomme le risque, et le plan de mitigation si il y'en a un."
+    test_prompt = f"Fais une synthèse globale des risques à partir des données de risques qui sont au format JSON: \n {data}. Pour chaque risque identifié, nomme le risque, et le plan de mitigation si il y'en a un, et la source du risque."
     c = exec.bedrock.converse(model_id="mistral.mistral-large-2407-v1:0",
                               messages=[ConverseMessage.make_user_message(test_prompt)], max_tokens=4096)
     return c.content[0].text
