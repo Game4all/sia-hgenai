@@ -70,7 +70,6 @@ def risk_analysis_prompt(liste_risques: list[str], doc: str) -> str:
         ],
         "note": <valeur entre 1 et 10>,
         "explication": "<raisonnement expliquant la note>"
-        "url": "<URL du document analysé>"
     }
 
     Exemple de réponse :
@@ -89,7 +88,6 @@ def risk_analysis_prompt(liste_risques: list[str], doc: str) -> str:
         ],
         "note": 8,
         "explication": "Les risques sont bien identifiés mais les plans d'adaptation ne sont pas toujours mentionnés."
-        "url": "https://www.exemple.com/document.pdf"
     }
     
     """
@@ -101,7 +99,8 @@ def analyze_doc_risks(
         doc: str,
         doc_url: str,
         analyse_model_id: str,
-        risques: list[str] = None
+        risques: list[str] = None,
+        max_retires: int = 3
     ) -> RiskAnalysisOutput:
     """ 
     Effectue l'analyse de risques sur le document spécifié.
@@ -112,16 +111,45 @@ def analyze_doc_risks(
         doc_url (str): URL du document.
         analyse_model_id (str): ID du modèle d'analyse.
         risques (list[str], optional): Liste des risques à analyser. Defaults to None.
+        max_retires (int, optional): Nombre maximal de tentatives pour effectuer l'analyse. Defaults to 3.
 
     Returns:
         RiskAnalysisOutput: Résultat de l'analyse.
     """
+    retries = 0
     risques = RISQUES if risques is None else risques
-    analysis_response = bedrock.converse(model_id=analyse_model_id, messages=[
-                                         ConverseMessage.make_user_message(risk_analysis_prompt(risques, doc))],
-                                         max_tokens=8192)
-    out = RiskAnalysisOutput.model_validate(
-        parse_json_response(analysis_response.content[0].text))
-
-    out.url = doc_url
+    prompt = risk_analysis_prompt(risques, doc)
+    while retries < max_retires:
+        try:
+            analysis_response = bedrock.converse(model_id=analyse_model_id, messages=[
+                                                ConverseMessage.make_user_message(prompt)],
+                                                max_tokens=8192)
+            out = RiskAnalysisOutput.model_validate(
+                parse_json_response(analysis_response.content[0].text))
+            out.url = doc_url
+            break
+        except Exception as e:
+            retries += 1
+            if retries >= max_retires:
+                raise e
+            else:
+                # bail out prompt
+                instruction = (
+                    "Veuillez vérifier le format du prompt ainsi que le nombre de tokens utilisés dans la requête. "
+                    "Assurez-vous que la réponse respecte strictement le format JSON suivant :\n"
+                    "{\n"
+                    '    "risques": [\n'
+                    '        {\n'
+                    '            "nom_risque": "<nom du risque>",\n'
+                    '            "identification_risque": "<passage identifiant le risque>",\n'
+                    '            "plan_adaptation_risque": "<passage mentionnant un plan ou null>"\n'
+                    '        }\n'
+                    '    ],\n'
+                    '    "note": <valeur entre 1 et 10>,\n'
+                    '    "explication": "<raisonnement expliquant la note>"\n'
+                    "}\n"
+                    "Si la réponse dépasse la limite de tokens, essayez de réduire la longueur du document ou la liste des risques analysés."
+                )
+                prompt += instruction
+        
     return out
