@@ -16,7 +16,7 @@ def agent_task(name):
     return decorator
 
 
-class AgentExecutor:
+class AgentContext:
     def __init__(self, wrapper: WrapperBedrock):
         # les sorties des différentes tâches
         self.outputs: dict[str, dict] = {}
@@ -47,3 +47,6 @@ class AgentExecutor:
         for task in tasks:
             self.execute_task(task)
             yield task.description
+
+    def reset(self):
+        self.outputs = {}

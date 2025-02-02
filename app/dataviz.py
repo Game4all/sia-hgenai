@@ -1,12 +1,23 @@
 from app.utils.bedrock import WrapperBedrock, ConverseMessage
 from app.utils.format import prompt_template, parse_json_response
 from app.analysis import AnalyzedRisk
+from pydantic import BaseModel
+
+class DataSource(BaseModel):
+    nom: str
+    desc: str
+
+
+DATA_SOURCES = [
+    DataSource(nom="CATNAT-GEORISQUE",
+               desc="Jeu de données de catastrophes naturelles pour un histogramme d'inondations, tornades, écoulement de boue, glissement de terrain")
+]
 
 
 @prompt_template
-def recommend_dataviz_template(choices: list[str], risks: list[AnalyzedRisk]) -> str:
+def recommend_dataviz_template(choices: list[str], risks: list[AnalyzedRisk], sources: list[DataSource]) -> str:
     """
-        Choisis parmi les options disponibles ci-dessous la visualisation de données la plus adaptée pour les risques prédominants suivants: 
+        Choisis parmi les options disponibles ci-dessous la visualisation de données la plus adaptée ainsi que la source de donnée pour les risques prédominants suivants: 
 
         Risques prédominants:
         {% for risk in risks -%}
@@ -14,24 +25,30 @@ def recommend_dataviz_template(choices: list[str], risks: list[AnalyzedRisk]) ->
         {% endfor %}
 
 
-        **Options:**
+        **Visualisations:**
         {% for choice in choices -%}
         - {{choice}}
         {% endfor %}
 
+        **Sources:**
+        {% for source in sources -%}
+        - nom: {{source.name}} - description: {{source.desc}}
+        {% endfor %}
+
         Réponds en utilisant le schéma JSON suivant:
         {
-            "visualization": "<visualisation choisie de la liste au dessus>"
+            "visualization": "<visualisation choisie de la liste au dessus>",
+            "source": "<nom de la source de donnee utilisee uniquement>"
         }
 
-        Donne uniquement ton choix.
+        Donne uniquement le schema JSON.
     """
 
 
-def recommend_dataviz(bedrock: WrapperBedrock, choices: list[str], risks: list, model_id: str = "mistral.mistral-large-2407-v1:0") -> str:
+def recommend_dataviz_datasource(bedrock: WrapperBedrock, choices: list[str], risks: list, model_id: str = "mistral.mistral-large-2407-v1:0") -> dict:
     resp = parse_json_response(bedrock.converse(model_id=model_id, messages=[
-        ConverseMessage.make_user_message(recommend_dataviz_template(choices, risks))]).content[0].text)
-    return resp["visualization"]
+        ConverseMessage.make_user_message(recommend_dataviz_template(choices, risks, sources=DATA_SOURCES))]).content[0].text)
+    return resp
 
 
 @prompt_template
@@ -89,7 +106,8 @@ def generate_visualization_template(risks: list[str], lieu: str) -> str:
     """
     pass
 
-def generate_visualization(bedrock: WrapperBedrock, risks: list[str], lieu:str, model_id: str = "anthropic.claude-3-5-sonnet-20241022-v2:0") -> str:
+
+def generate_visualization(bedrock: WrapperBedrock, risks: list[str], lieu: str, model_id: str = "anthropic.claude-3-5-sonnet-20241022-v2:0") -> str:
     resp = parse_json_response(bedrock.converse(model_id=model_id, messages=[
         ConverseMessage.make_user_message(generate_visualization_template(risks, lieu))], max_tokens=8192).content[0].text)
     return resp

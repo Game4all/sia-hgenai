@@ -1,9 +1,13 @@
 import time
+import pandas as pd
 import streamlit as st
 from app.planning.subtasks import plan_actions
-from app.planning.executor import AgentExecutor, agent_task
+from app.planning.executor import AgentContext, agent_task
 from app.planning.tasks import search_docs, analyze_documents, synth, dataviz
-from app.dataviz import recommend_dataviz
+from app.dataviz import recommend_dataviz_datasource
+
+import folium
+import streamlit_folium as stf
 
 from app.utils.bedrock import WrapperBedrock
 from dotenv import load_dotenv
@@ -12,9 +16,20 @@ load_dotenv()
 
 st.set_page_config(layout="wide")
 
+
 @st.cache_resource
 def get_bedrock() -> WrapperBedrock:
     return WrapperBedrock()
+
+
+@st.cache_resource
+def get_agent_context() -> AgentContext:
+    ag = AgentContext(get_bedrock())
+    ag.register_task(search_docs)
+    ag.register_task(analyze_documents)
+    ag.register_task(dataviz)
+    ag.register_task(synth)
+    return ag
 
 
 if "messages" not in st.session_state:
@@ -26,7 +41,11 @@ chat_messages_container = chat_container.container(height=720)
 
 # affichage des précédents messages
 for msg in st.session_state["messages"]:
-    chat_messages_container.chat_message(msg["role"]).write(msg["content"])
+    msg_c = chat_messages_container.chat_message(msg["role"])
+    msg_c.write(msg["content"])
+    if "embed" in msg:
+        with msg_c:
+            stf.st_folium(msg["embed"], width=500)
 
 prompt = chat_container.chat_input(placeholder="Entrez votre prompt")
 
@@ -53,25 +72,28 @@ if prompt:
         execution_status.update(
             label="Execution des tâches ...", state="running")
 
-        exec = AgentExecutor(get_bedrock())
-        exec.register_task(search_docs)
-        exec.register_task(analyze_documents)
-        exec.register_task(dataviz)
-        exec.register_task(synth)
+        exec = get_agent_context()
+        exec.reset()
 
         for id, task in enumerate(exec.execute_tasks(planning["tasks"])):
             execution_status.update(
                 label="{} ({} / {})".format(task, id + 1, len(planning["tasks"])))
 
+    # optionnal data viz
+    viz = exec.get_inputs(
+        "dataviz_output") if "dataviz_output" in exec.outputs else None
+
     if "synthesize_output" in exec.outputs:
-        st.session_state["messages"].append(
-            {"role": "assistant", "content": exec.get_inputs("synthesize_output")})
+        msg = {"role": "assistant",
+               "content": exec.get_inputs("synthesize_output")}
+        if viz:
+            msg["embed"] = viz
+
+        st.session_state["messages"].append(msg)
         bot_reply.write(exec.get_inputs("synthesize_output"))
 
-
-    if "analyze_output" in exec.outputs:
-        a = recommend_dataviz(get_bedrock(), ["histogramme", "carte", "courbe"], risks=exec.get_inputs("analyze_output"))
-        print(a)
-        bot_reply.write(f"Visualisation la plus adaptée: {a}")
+        if viz:
+            with bot_reply:
+                stf.st_folium(viz, width=500)
 
     execution_status.update(state="complete")
