@@ -4,7 +4,7 @@ import streamlit as st
 from app.planning.subtasks import plan_actions
 from app.planning.executor import AgentContext, agent_task
 from app.planning.tasks import search_docs, analyze_documents, synth, dataviz
-from app.dataviz import recommend_dataviz_datasource
+from app.dataviz import recommend_dataviz_suggestion
 
 import folium
 import streamlit_folium as stf
@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 st.set_page_config(layout="wide")
-
+st.image("sfil.png", width=100)
 
 @st.cache_resource
 def get_bedrock() -> WrapperBedrock:
@@ -46,6 +46,9 @@ for msg in st.session_state["messages"]:
     if "embed" in msg:
         with msg_c:
             stf.st_folium(msg["embed"], width=500)
+
+    if "fig" in msg:
+        msg_c.plotly_chart(msg["fig"])
 
 prompt = chat_container.chat_input(placeholder="Entrez votre prompt")
 
@@ -87,13 +90,19 @@ if prompt:
         msg = {"role": "assistant",
                "content": exec.get_inputs("synthesize_output")}
         if viz:
-            msg["embed"] = viz
+            if type(viz) == type(folium.Map):
+                msg["embed"] = viz
+            else:
+                msg["fig"] = viz
 
         st.session_state["messages"].append(msg)
         bot_reply.write(exec.get_inputs("synthesize_output"))
 
         if viz:
             with bot_reply:
-                stf.st_folium(viz, width=500)
+                if type(viz) == type(folium.Map):
+                    stf.st_folium(viz, width=500)
+                else:
+                    st.plotly_chart(viz)
 
     execution_status.update(state="complete")

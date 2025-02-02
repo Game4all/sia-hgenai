@@ -79,7 +79,9 @@ def validate_user_request_template(user_request: str, few_shot_examples: Optiona
     pass
 
 
-def validate_user_request(user_request: str, client: WrapperBedrock, model_id: str) -> Dict[str, Any]:
+def validate_user_request(user_request: str,
+                          client: WrapperBedrock,
+                          model_id: str) -> Dict[str, Any]:
     """
     Valide une requête utilisateur pour s'assurer qu'elle contient les informations nécessaires.
 
@@ -145,21 +147,18 @@ def validate_user_request(user_request: str, client: WrapperBedrock, model_id: s
         user_request=user_request, few_shot_examples=few_shot_examples)
     messages = [ConverseMessage.make_user_message(instruction)]
     response = client.converse(
-        model_id=model_id, messages=messages, max_tokens=300)
+        model_id=model_id, messages=messages, max_tokens=512)
     response_text = response.content[0].text
 
     try:
         parsed_response = parse_json_response(response_text)
-        if isinstance(parsed_response, dict) and {"requete_valide", "message", "risques", "lieux", "niv_admin"} <= parsed_response.keys():
+        print(parsed_response)
+        if parsed_response and isinstance(parsed_response, dict) and {"requete_valide", "message", "risques", "lieux", "niv_admin"} <= parsed_response.keys():
             return parsed_response
         else:
-            raise json.JSONDecodeError
-    except Exception as e:
-        pass
-
-    return parsed_response
-
-
+            raise Exception
+    except Exception:
+        return {"requete_valide": False, "message": parsed_response["message"]}
 @prompt_template
 def subtask_prompt_template(user_request: str, few_shot_examples: Optional[List[Dict[str, Any]]] = None) -> str:
     """
@@ -187,18 +186,18 @@ def subtask_prompt_template(user_request: str, few_shot_examples: Optional[List[
 
     {%- set doc_mapping = {
         "commune": {
-            "docs": ["DICRIM", "PLU", "PCS", "PPRi"],
+            "docs": ["DICRIM", "Plan Local d'Urbanisme", "Plan Communal de Sauvegarde"],
             "sources": ["Geoportail", "Georisques", "Gaspar"]
         },
         "groupement": {
-            "docs": ["PLUI", "PICS", "PAPI"],
+            "docs": ["Plan Local d'Urbanisme Intercommunal", "Plan Intercommunal De Sauvegarde", "Plan d'Action de Prévention des Inondations"],
             "sources": ["Geoportail Urbanisme", "Gaspar", "Ademe"]
         },
         "departement": {
-            "docs": ["DDRM", "PDFCI"],
+            "docs": ["Dossier départemental des risques majeurs", "Plan Départemental de Protection des Forêts Contre les Incendies"],
             "sources": ["Gaspar", "Préfecture"]
         },
-        "region": {
+        "région": {
             "docs": ["SRADDET", "SDAGE"],
             "sources": ["Ademe", "Régions de France"]
         }
@@ -219,27 +218,34 @@ def subtask_prompt_template(user_request: str, few_shot_examples: Optional[List[
             "task": "ANALYZE_DOCS",
             "description": "Analyse des documents pour {{ user_request['lieux'] | join(', ') }}",
             "args": {
-                "in": "search_output"
+                "in": "search_output",
+                "risques": {{ user_request["risques"] | tojson }} if user_request["risques"] else []
             },
-            "out": "analyze_out"
+            "out": "analyze_output"
         },
         {
             "task": "DATAVIZ",
             "description": "Création de visualisations pour {{ user_request['lieux'] | join(', ') }}",
             "args": {
+<<<<<<< HEAD
                 "in": "analyze_out",
                 "risques": {{ user_request["risques"] | tojson }},
                 "lieux": {{ user_request['lieux'] | join(', ') }}
+=======
+                "lieux": {{ user_request["lieux"] | join(', ') }}
+                "risques": "risques": {{ user_request["risques"] | tojson }} if user_request["risques"] else []
+>>>>>>> main
             },
-            "out": "dataviz_out"
+            "out": "dataviz_output"
         },
         {
             "task": "SYNTHESIZE",
             "description": "Synthèse des données de risques pour {{ user_request['lieux'] | join(', ') }}",
             "args": {
-                "in": "analyze_out"
+                "in": "analyze_output",
+                "dataviz": "dataviz_output"
             },
-            "out": "synthesize_out"
+            "out": "synthesize_output"
         }
     ]
 
@@ -296,6 +302,17 @@ def divide_task(prompt: str,
                 messages.append(response)
                 instruction = (
                     "\n\n⚠️ Erreur détectée. Reformulez la réponse au format JSON valide :\n"
+                    "La structure du format JSON pour chaque sous-tâche est la suivante :\n"
+                    "{\n"
+                    "    'task': '<type de la sous-tâche>',\n"
+                    "    'description': '<description textuelle de la sous-tâche>',\n"
+                    "    'args': {\n"
+                    "        '<argument1>': '<valeur1>',\n"
+                    "        '<argument2>': '<valeur2>',\n"
+                    "        ...\n"
+                    "    },\n"
+                    "    'out': '<identifiant unique pour la sortie de la tâche>'\n"
+                    "}\n"
                 )
                 messages.append(
                     ConverseMessage.make_system_message(instruction))
@@ -341,7 +358,7 @@ def plan_actions(
                                 "task": "SEARCH_DOCS",
                                 "description": "Recherche de documents sur les inondations à Paris",
                                 "args": {
-                                "docs": ["DICRIM", "PLU", "PCS", "PPRi"],
+                                "docs": ["DICRIM", "Plan Local d'Urbanisme", "Plan Communal de Sauvegarde"],
                                 "sources": ["Geoportail", "Georisques", "Gaspar"],
                                 "lieux": "Paris",
                                 },
@@ -351,7 +368,8 @@ def plan_actions(
                                 "task": "ANALYZE_DOCS",
                                 "description": "Analyse des documents pour extraire les informations sur les inondations à Paris",
                                 "args": {
-                                "in": "search_output"
+                                "in": "search_output",
+                                "risques": ["Inondation"]
                                 },
                                 "out": "analyze_output"
                             },
@@ -369,7 +387,8 @@ def plan_actions(
                                 "task": "SYNTHESIZE",
                                 "description": "Synthèse des données et formulation des recommandations sur les inondations à Paris",
                                 "args": {
-                                "in": "analyze_output"
+                                "in": "analyze_output",
+                                "dataviz": "dataviz_output"
                                 },
                                 "out": "synthesize_output"
                             }
@@ -392,7 +411,8 @@ def plan_actions(
                                 "task": "ANALYZE_DOCS",
                                 "description": "Analyse des documents pour identifier les impacts de la sécheresse et des vagues de chaleur dans la région",
                                 "args": {
-                                    "in": "search_output"
+                                    "in": "search_output",
+                                    "risques": ["Sécheresse", "Vague de chaleur"]
                                 },
                                 "out": "analyze_output"
                             },
@@ -413,7 +433,7 @@ def plan_actions(
                             "task": "SEARCH_DOCS",
                             "description": "Recherche de documents sur la pollution de l'air dans le département de l'Isère",
                             "args": {
-                            "docs": ["DDRM", "PDFCI"],
+                            "docs": ["Dossier départemental des risques majeurs", "Plan Départemental de Protection des Forêts Contre les Incendies"],
                                 "sources": ["Gaspar", "Préfecture"],
                                 "lieux": "Isère",
                             },
@@ -423,7 +443,8 @@ def plan_actions(
                             "task": "ANALYZE_DOCS",
                             "description": "Analyse des documents pour identifier les sources et conséquences de la pollution de l'air dans l'Isère",
                             "args": {
-                                "in": "search_output"
+                                "in": "search_output",
+                                "risques": ["Pollution de l’air"]
                             },
                             "out": "analyze_output"
                         },
@@ -441,7 +462,8 @@ def plan_actions(
                             "task": "SYNTHESIZE",
                             "description": "Synthèse des informations et élaboration d'un rapport sur la pollution de l'air dans l'Isère",
                             "args": {
-                                "in": "analyze_output"
+                                "in": "analyze_output",
+                                "dataviz": "dataviz_output"
                             },
                             "out": "synthesize_output"
                         }
@@ -464,7 +486,8 @@ def plan_actions(
                             "task": "ANALYZE_DOCS",
                             "description": "Analyse des documents pour évaluer l'impact et les risques de feux de forêt dans l'Essonne",
                             "args": {
-                            "in": "search_output"
+                                "in": "search_output",
+                                "risques": ["Feu de forêt"]
                             },
                             "out": "analyze_output"
                         },
@@ -482,20 +505,21 @@ def plan_actions(
                             "task": "SYNTHESIZE",
                             "description": "Synthèse des données et formulation de recommandations pour prévenir les feux de forêt",
                             "args": {
-                            "in": "analyze_output"
+                                "in": "analyze_output",
+                                "dataviz": "dataviz_output"
                             },
                             "out": "synthesize_output"
                         }
                         ]
         },
         {
-            "requete": "Élabore un rapport complet incluant des visualisations sur l'impact du stress hydrique dans la ville de Lyon.",
+            "requete": "Élabore un rapport complet incluant des visualisations sur l'impact des risques environnementaux dans la ville de Lyon.",
             "subtasks": [
                         {
                             "task": "SEARCH_DOCS",
-                            "description": "Recherche de documents sur le stress hydrique à Lyon",
+                            "description": "Recherche de documents sur les risques environnementaux à Lyon",
                             "args": {
-                            "docs": ["DICRIM", "PLU", "PCS", "PPRi"],
+                            "docs": ["DICRIM", "Plan Local d'Urbanisme", "Plan Communal de Sauvegarde"],
                             "sources": ["Geoportail", "Georisques", "Gaspar"],
                             "lieux": "Lyon",
                             },
@@ -503,15 +527,16 @@ def plan_actions(
                         },
                         {
                             "task": "ANALYZE_DOCS",
-                            "description": "Analyse des documents pour identifier les causes et impacts du stress hydrique à Lyon",
+                            "description": "Analyse des documents pour identifier les causes et impacts des risques environnementaux à Lyon",
                             "args": {
-                            "in": "search_output"
+                            "in": "search_output",
+                            "risques": "[]"
                             },
                             "out": "analyze_output"
                         },
                         {
                             "task": "DATAVIZ",
-                            "description": "Création de visualisations pour illustrer les données de stress hydrique à Lyon",
+                            "description": "Création de visualisations pour illustrer les données sur les risques environnementaux à Lyon",
                             "args": {
                             "in": "analyze_output",
                             "risques": ["Stress hydrique"],
@@ -521,9 +546,10 @@ def plan_actions(
                         },
                         {
                             "task": "SYNTHESIZE",
-                            "description": "Synthèse des résultats d'analyse et intégration des visualisations dans un rapport complet sur le stress hydrique à Lyon",
+                            "description": "Synthèse des résultats d'analyse et intégration des visualisations dans un rapport complet sur les risques environnementaux à Lyon",
                             "args": {
-                            "in": "dataviz_output"
+                                "in": "dataviz_output",
+                                "dataviz": "dataviz_output"
                             },
                             "out": "synthesize_output"
                         }

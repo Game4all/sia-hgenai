@@ -3,14 +3,15 @@ from app.utils.format import prompt_template, parse_json_response
 from app.analysis import AnalyzedRisk
 from pydantic import BaseModel
 
+
 class DataSource(BaseModel):
-    nom: str
+    id: str
     desc: str
 
 
 DATA_SOURCES = [
-    DataSource(nom="CATNAT-GEORISQUE",
-               desc="Jeu de données de catastrophes naturelles pour un histogramme d'inondations, tornades, écoulement de boue, glissement de terrain")
+    DataSource(id="CATNAT-GEORISQUE",
+               desc="Jeu de données de catastrophes naturelles pour un histogramme / diagramme en barres d'inondations, tornades, écoulement de boue, glissement de terrain, séismes")
 ]
 
 
@@ -19,36 +20,90 @@ def recommend_dataviz_template(choices: list[str], risks: list[AnalyzedRisk], so
     """
         Choisis parmi les options disponibles ci-dessous la visualisation de données la plus adaptée ainsi que la source de donnée pour les risques prédominants suivants: 
 
-        Risques prédominants:
-        {% for risk in risks -%}
-        - {{risk.nom_risque}}
-        {% endfor %}
-
-
-        **Visualisations:**
-        {% for choice in choices -%}
-        - {{choice}}
-        {% endfor %}
-
-        **Sources:**
-        {% for source in sources -%}
-        - nom: {{source.name}} - description: {{source.desc}}
-        {% endfor %}
-
         Réponds en utilisant le schéma JSON suivant:
         {
             "visualization": "<visualisation choisie de la liste au dessus>",
-            "source": "<nom de la source de donnee utilisee uniquement>"
+            "source": "<id de la source de donnee utilisee uniquement>"
         }
 
-        Donne uniquement le schema JSON.
+        Si jamais il y a des risques de feu de forêts, préfère utiliser une carte.
+
+        Donne uniquement ta réponse.
+
+        Exemple:
+
+            **Risques prédominants:**
+            - Innondations
+            - Mouvement de terrain
+
+            **Visualisations**:
+            - histo
+            - barchart
+            - carte
+
+            **Sources**:
+            id: CATNAT-GEORISQUE - description: Jeu de données de catastrophes naturelles pour un histogramme d'inondations, tornades, écoulement de boue, glissement de terrain
+            nom: GEOAPI - description: API georisque
+
+            Reponse:
+                {
+                    "visualization": "histo",
+                    "source": "CATNAT-GEORISQUE"
+                }
+
+            =====================================================
+
+            Risques prédominants:
+            {% for risk in risks -%}
+            - {{risk.nom_risque}}
+            {% endfor %}
+
+
+            **Visualisations:**
+            {% for choice in choices -%}
+            - {{choice}}
+            {% endfor %}
+
+            **Sources:**
+            {% for source in sources -%}
+            - id: {{source.id}} - description: {{source.desc}}
+            {% endfor %}
+
+            Réponse:
+            {
     """
 
 
-def recommend_dataviz_datasource(bedrock: WrapperBedrock, choices: list[str], risks: list, model_id: str = "mistral.mistral-large-2407-v1:0") -> dict:
+def recommend_dataviz_suggestion(bedrock: WrapperBedrock, choices: list[str], risks: list, model_id: str = "anthropic.claude-3-5-sonnet-20241022-v2:0") -> dict:
+    b = recommend_dataviz_template(
+        choices=choices, risks=risks, sources=DATA_SOURCES)
     resp = parse_json_response(bedrock.converse(model_id=model_id, messages=[
-        ConverseMessage.make_user_message(recommend_dataviz_template(choices, risks, sources=DATA_SOURCES))]).content[0].text)
+        ConverseMessage.make_user_message(b)]).content[0].text)
     return resp
+
+
+@prompt_template
+def slotfill_viz_template(viz_type: str, colonnes: list[str]) -> str:
+    """
+    Tu es un expert en visualisation de données environnementales. Retourne parmi la liste de colonnes d'un dataframe présenté la colonne à utiliser pour un / une {{viz_type}} ainsi que le titre du graphique a creer. Préfère la colonne nommée `libelle_risque_jo` si elle existe
+    Réponds avec le schéma json suivant:
+
+    {
+        "col": "<nom de la colonne>",
+        "titre": "<titre du visuel>"
+    }
+
+    Colonnes disponibles:
+    {% for col in colonnes -%}
+    - {{col}}
+    {% endfor %}
+    """
+    pass
+
+
+def slotfill_viz(bedrock: WrapperBedrock, viz_type: str, colonnes: list[str]) -> str:
+    return parse_json_response(bedrock.converse(model_id="anthropic.claude-3-5-sonnet-20241022-v2:0", messages=[
+        ConverseMessage.make_user_message(slotfill_viz_template(viz_type, colonnes))]).content[0].text)
 
 
 @prompt_template

@@ -1,13 +1,11 @@
 import requests
-import os
-from googlesearch import search
 from difflib import SequenceMatcher
 import fitz
 import app.utils.bedrock as bedrock
-from duckduckgo_search import DDGS
-import json
 import io
 from googleapiclient.discovery import build
+import json
+import pandas as pd
 
 
 class scrapper:
@@ -16,8 +14,23 @@ class scrapper:
         self.pipe = pipe
         self.cred = googlecred
         self.idengin = googleidengin
-
-    def get_insee_code(self, city_name):
+    
+    def get_accident_history(self,city,v=False):
+        code_insee = self.get_insee_code(city)
+        if(v):
+            print(code_insee)
+        try:
+            response = requests.get(f"https://georisques.gouv.fr/api/v1/gaspar/catnat?rayon=2500&code_insee={code_insee}&page=1&page_size=256", stream=True)
+            text = json.loads(response.content)
+            data = text["data"]
+            df = pd.json_normalize(data)
+            return {"url": f"https://georisques.gouv.fr/api/v1/gaspar/catnat?rayon=2500&code_insee={code_insee}&page=1&page_size=256", "df": df}
+        except Exception as e:
+            if(v):
+                print(f"error {e}")
+            return None
+    
+    def get_insee_code(self,city_name):
         def similarity(a, b):
             return SequenceMatcher(None, a, b).ratio()
 
@@ -74,12 +87,21 @@ class scrapper:
         code_insee = self.get_insee_code(city)
         if (v):
             print(code_insee)
-        response = requests.get(
-            f"https://georisques.gouv.fr/api/v1/rapport_pdf?code_insee={code_insee}", stream=True)
-        return {"url": f"https://georisques.gouv.fr/api/v1/rapport_pdf?code_insee={code_insee}", "pdf": response.content}
-
-    def check_revelence(self, subject, pathpdf, logs=False, v=False):
-        if (v):
+        try:
+            response = requests.get(f"https://georisques.gouv.fr/api/v1/rapport_pdf?code_insee={code_insee}", stream=True)
+            if response.status_code != 200 or not response.content.startswith(b"%PDF"):
+                raise ValueError("Invalid or corrupt PDF file.")
+            
+            pdf_document = fitz.open("pdf", io.BytesIO(response.content))
+            text = "\n".join([page.get_text() for page in pdf_document])
+            return {"url": f"https://georisques.gouv.fr/api/v1/rapport_pdf?code_insee={code_insee}", "pdf": text}
+        except Exception as e:
+            if(v):
+                print(f"error {e}")
+            return None
+    
+    def check_revelence(self,subject,pathpdf,logs=False,v=False):
+        if(v):
             print(f"checking revelence...")
         text = pathpdf
         if (self.word_count(text) < 1000):
@@ -151,8 +173,9 @@ class scrapper:
                         if (counter_result >= self.num_results):
                             break
                     except Exception as e:
-                        print(f"error {e}")
-            return files
+                        if(v):
+                            print(f"error {e}")
+        return files
 
 # import torch
 # from transformers import pipeline
