@@ -371,7 +371,9 @@ def plan_actions(
                                 "task": "DATAVIZ",
                                 "description": "Création de visualisations pour illustrer les risques d'inondation à Paris",
                                 "args": {
-                                "lieux": "Paris"
+                                "in": "analyze_output",
+                                "risques": ["Inondation"],
+                                "lieux": "Paris",
                                 },
                                 "out": "dataviz_output"
                             },
@@ -444,8 +446,9 @@ def plan_actions(
                             "task": "DATAVIZ",
                             "description": "Création de visualisations pour illustrer les données sur la pollution de l'air",
                             "args": {
-                                "in": "Isère",
-                                "risques": ["Pollution de l’air"]
+                                "in": "analyze_output",
+                                "risques": ["Pollution de l’air"],
+                                "lieux": "Isère",
                             },
                             "out": "dataviz_output"
                         },
@@ -467,9 +470,9 @@ def plan_actions(
                             "task": "SEARCH_DOCS",
                             "description": "Recherche de documents sur les feux de forêt pour le groupement de communes de l'Essonne",
                             "args": {
-                            "docs": ["Plan Local d'Urbanisme Intercommunal", "Plan Intercommunal De Sauvegarde", "Plan d'Action de Prévention des Inondations"],
-                                "sources": ["Geoportail Urbanisme", "Gaspar", "Ademe"],
-                                "lieux": "Essonne"
+                            "docs": ["PLUI", "PICS", "PAPI"],
+                            "sources": ["Geoportail Urbanisme", "Gaspar", "Ademe"],
+                            "lieux": ["Essonne"]
                             },
                             "out": "search_output"
                         },
@@ -486,8 +489,9 @@ def plan_actions(
                             "task": "DATAVIZ",
                             "description": "Création de visualisations pour représenter les risques de feux de forêt dans l'Essonne",
                             "args": {
-                                "lieux": "Essonne",
-                                "risques": ["Feu de forêt"]
+                            "in": "analyze_output",
+                            "risques": ["Feu de forêt"],
+                            "lieux": "Essonne"
                             },
                             "out": "dataviz_output"
                         },
@@ -528,8 +532,9 @@ def plan_actions(
                             "task": "DATAVIZ",
                             "description": "Création de visualisations pour illustrer les données sur les risques environnementaux à Lyon",
                             "args": {
-                                "lieux": "Lyon",
-                                "risques": "[]"
+                            "in": "analyze_output",
+                            "risques": ["Stress hydrique"],
+                            "lieux": "Lyon"
                             },
                             "out": "dataviz_output"
                         },

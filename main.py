@@ -1,8 +1,13 @@
 import time
+import pandas as pd
 import streamlit as st
 from app.planning.subtasks import plan_actions
-from app.planning.executor import AgentExecutor, agent_task
-from app.planning.tasks import search_docs, analyze_documents, synth
+from app.planning.executor import AgentContext, agent_task
+from app.planning.tasks import search_docs, analyze_documents, synth, dataviz
+from app.dataviz import recommend_dataviz_suggestion
+
+import folium
+import streamlit_folium as stf
 
 from app.utils.bedrock import WrapperBedrock
 from dotenv import load_dotenv
@@ -17,11 +22,14 @@ def get_bedrock() -> WrapperBedrock:
     return WrapperBedrock()
 
 
-@agent_task("DATAVIZ")
-def dataviz(exec: AgentExecutor, args: dict) -> None:
-    print("DATAVIZ")
-    time.sleep(3)
-    return None
+@st.cache_resource
+def get_agent_context() -> AgentContext:
+    ag = AgentContext(get_bedrock())
+    ag.register_task(search_docs)
+    ag.register_task(analyze_documents)
+    ag.register_task(dataviz)
+    ag.register_task(synth)
+    return ag
 
 
 if "messages" not in st.session_state:
@@ -35,7 +43,15 @@ chat_messages_container = chat_container.container(height=720)
 
 # affichage des précédents messages
 for msg in st.session_state["messages"]:
-    chat_messages_container.chat_message(msg["role"]).write(msg["content"])
+    msg_c = chat_messages_container.chat_message(msg["role"])
+    msg_c.write(msg["content"])
+    if "embed" in msg:
+        with msg_c:
+            stf.st_folium(msg["embed"], width=500)
+
+    if "fig" in msg:
+        msg_c.plotly_chart(msg["fig"])
+
 prompt = chat_container.chat_input(placeholder="Entrez votre prompt")
 col1,col2,col3 = chat_messages_container.columns((1,1,1))
 if(col1.button("Donne moi une étude de danger secheress a Laon")):
@@ -63,22 +79,38 @@ if prompt:
             {"role": "assistant", "content": "🛑 " + planning["error"]})
         bot_reply.write("🛑 " + planning["error"])
 
-    else:
-        if "tasks" in planning:
+    if "tasks" in planning:
+        execution_status.update(
+            label="Execution des tâches ...", state="running")
+
+        exec = get_agent_context()
+        exec.reset()
+
+        for id, task in enumerate(exec.execute_tasks(planning["tasks"])):
             execution_status.update(
-                label="Execution des tâches ...", state="running")
+                label="{} ({} / {})".format(task, id + 1, len(planning["tasks"])))
 
-            exec = AgentExecutor(get_bedrock())
-            exec.register_task(search_docs)
-            exec.register_task(analyze_documents)
-            exec.register_task(dataviz)
-            exec.register_task(synth)
+    # optionnal data viz
+    viz = exec.get_inputs(
+        "dataviz_output") if "dataviz_output" in exec.outputs else None
 
-            for id, task in enumerate(exec.execute_tasks(planning["tasks"])):
-                execution_status.update(
-                    label="{} ({} / {})".format(task, id + 1, len(planning["tasks"])))
+    if "synthesize_output" in exec.outputs:
+        msg = {"role": "assistant",
+               "content": exec.get_inputs("synthesize_output")}
+        if viz:
+            if isinstance(viz, folium.Map):
+                msg["embed"] = viz
+            else:
+                msg["fig"] = viz
 
-        if "synthesize_output" in exec.outputs:
-            bot_reply.write(exec.get_inputs("synthesize_output"))
+        st.session_state["messages"].append(msg)
+        bot_reply.write(exec.get_inputs("synthesize_output"))
 
-        execution_status.update(state="complete")
+        if viz:
+            with bot_reply:
+                if isinstance(viz, folium.Map):
+                    stf.st_folium(viz, width=500)
+                else:
+                    st.plotly_chart(viz)
+
+    execution_status.update(state="complete")
