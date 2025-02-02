@@ -29,12 +29,11 @@ def analyze_documents(exec: AgentExecutor, args: dict) -> dict:
         analysis = []
         for f in files:
             if len(f["pdf"]) > 200000:
-                print("Fichier trop lourd")
-                continue
+                f["pdf"] = f["pdf"][:200000]
+                print(f"Le fichier {f['url']} est trop grand, il a été tronqué à 200000 caractères")
             print("Analyse de ", f["url"])
-    
             analysis.append(analyze_doc_risks(
-                exec.bedrock, f["pdf"], f["url"], "mistral.mistral-large-2407-v1:0", args["risques"]))
+                exec.bedrock, f["pdf"], f["url"], "anthropic.claude-3-5-sonnet-20241022-v2:0", args.get("risques", None)))
 
     return analysis
 

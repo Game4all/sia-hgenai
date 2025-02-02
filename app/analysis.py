@@ -27,7 +27,7 @@ RISQUES = [
 
 class AnalyzedRisk(BaseModel):
     nom_risque: str
-    identification_risque: str
+    identification_risque: str | None
     plan_adaptation_risque: str | None
 
 
@@ -70,6 +70,7 @@ def risk_analysis_prompt(liste_risques: list[str], doc: str) -> str:
         ],
         "note": <valeur entre 1 et 10>,
         "explication": "<raisonnement expliquant la note>"
+        "url": "<URL du document analysé>"
     }
 
     Exemple de réponse :
@@ -88,6 +89,7 @@ def risk_analysis_prompt(liste_risques: list[str], doc: str) -> str:
         ],
         "note": 8,
         "explication": "Les risques sont bien identifiés mais les plans d'adaptation ne sont pas toujours mentionnés."
+        "url": "https://www.exemple.com/document.pdf"
     }
     
     """
@@ -99,7 +101,7 @@ def analyze_doc_risks(
         doc: str,
         doc_url: str,
         analyse_model_id: str,
-        risques:list[str] = None
+        risques: list[str] = None
     ) -> RiskAnalysisOutput:
     """ 
     Effectue l'analyse de risques sur le document spécifié.
@@ -118,8 +120,6 @@ def analyze_doc_risks(
     analysis_response = bedrock.converse(model_id=analyse_model_id, messages=[
                                          ConverseMessage.make_user_message(risk_analysis_prompt(risques, doc))],
                                          max_tokens=8192)
-    print("Analyse réponse", analysis_response.content[0].text)
-    print("Analyse réponse fin")
     out = RiskAnalysisOutput.model_validate(
         parse_json_response(analysis_response.content[0].text))
 
