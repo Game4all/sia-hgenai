@@ -38,12 +38,12 @@ for msg in st.session_state["messages"]:
     chat_messages_container.chat_message(msg["role"]).write(msg["content"])
 prompt = chat_container.chat_input(placeholder="Entrez votre prompt")
 col1,col2,col3 = chat_messages_container.columns((1,1,1))
-if(col1.button("donne moi une étude de danger secheress a laon")):
-    prompt = "donne moi une étude de danger d'innondation a laon"
-if(col2.button("donne moi une étude de danger d'innondation a paris")):
-    prompt = "donne moi une étude de danger sismique a paris"
-if(col3.button("donne moi une étude de danger de feu de forêt à bordeau")):
-    prompt = "donne moi une étude de danger de feu de forêt à bordeau"
+if(col1.button("Donne moi une étude de danger secheress a Laon")):
+    prompt = "Donne moi une étude de danger d'innondation a Laon"
+if(col2.button("Donne moi une étude de danger a Paris")):
+    prompt = "Donne moi une étude de danger a Paris"
+if(col3.button("Donne moi une étude de danger de feu de forêt à Bordeaux")):
+    prompt = "Donne moi une étude de danger de feu de forêt à Bordeaux"
 if prompt:
     # add the typed in message
     st.session_state["messages"].append({"role": "user", "content": prompt})
