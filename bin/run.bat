@@ -1,6 +1,6 @@
 @echo off
 
-set APP_FILE="app/app.py"
+set APP_FILE="main.py"
 set VENV_DIR=".venv"
 
 if not exist %VENV_DIR% (

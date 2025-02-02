@@ -1,6 +1,6 @@
 #!/bin/bash
 
-APP_FILE="app/app.py"
+APP_FILE="main.py"
 VENV_DIR=".venv"
 
 if [ ! -d "$VENV_DIR" ]; then
