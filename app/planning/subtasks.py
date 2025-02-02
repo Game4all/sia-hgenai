@@ -227,14 +227,8 @@ def subtask_prompt_template(user_request: str, few_shot_examples: Optional[List[
             "task": "DATAVIZ",
             "description": "Création de visualisations pour {{ user_request['lieux'] | join(', ') }}",
             "args": {
-<<<<<<< HEAD
-                "in": "analyze_out",
-                "risques": {{ user_request["risques"] | tojson }},
-                "lieux": {{ user_request['lieux'] | join(', ') }}
-=======
                 "lieux": {{ user_request["lieux"] | join(', ') }}
                 "risques": "risques": {{ user_request["risques"] | tojson }} if user_request["risques"] else []
->>>>>>> main
             },
             "out": "dataviz_output"
         },
