@@ -36,7 +36,7 @@ chat_messages_container = chat_container.container(height=720)
 # affichage des précédents messages
 for msg in st.session_state["messages"]:
     chat_messages_container.chat_message(msg["role"]).write(msg["content"])
-    
+prompt = chat_container.chat_input(placeholder="Entrez votre prompt")
 col1,col2,col3 = chat_messages_container.columns((1,1,1))
 if(col1.button("donne moi une étude de danger secheress a laon")):
     prompt = "donne moi une étude de danger d'innondation a laon"
@@ -82,5 +82,3 @@ if prompt:
             bot_reply.write(exec.get_inputs("synthesize_output"))
 
         execution_status.update(state="complete")
-
-prompt = chat_container.chat_input(placeholder="Entrez votre prompt")
