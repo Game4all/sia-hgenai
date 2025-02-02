@@ -7,8 +7,10 @@ from app.planning.tasks import search_docs, analyze_documents, synth
 from app.utils.bedrock import WrapperBedrock
 from dotenv import load_dotenv
 
-st.set_page_config(layout="wide")
 load_dotenv()
+
+st.set_page_config(layout="wide")
+st.image("sfil.png", width=100)
 
 @st.cache_resource
 def get_bedrock() -> WrapperBedrock:

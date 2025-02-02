@@ -29,12 +29,11 @@ def analyze_documents(exec: AgentExecutor, args: dict) -> dict:
         analysis = []
         for f in files:
             if len(f["pdf"]) > 200000:
-                print("Fichier trop lourd")
-                continue
+                f["pdf"] = f["pdf"][:200000]
+                print(f"Le fichier {f['url']} est trop grand, il a été tronqué à 200000 caractères")
             print("Analyse de ", f["url"])
-    
             analysis.append(analyze_doc_risks(
-                exec.bedrock, f["pdf"], f["url"], "mistral.mistral-large-2407-v1:0", args["risques"]))
+                exec.bedrock, f["pdf"], f["url"], "anthropic.claude-3-5-sonnet-20241022-v2:0", args.get("risques", None)))
 
     return analysis
 
@@ -48,7 +47,7 @@ def dataviz(exec: AgentExecutor, args: dict) -> dict:
 def synth(exec: AgentExecutor, args: dict) -> dict:
     data = [d.model_dump_json() for d in exec.get_inputs(args["in"])]
 
-    test_prompt = f"Fais une synthèse globale des risques à partir des données de risques qui sont au format JSON: \n {data}. Pour chaque risque identifié, nomme le risque, et le plan de mitigation si il y'en a un."
+    test_prompt = f"Fais une synthèse globale des risques à partir des données de risques qui sont au format JSON: \n {data}. Pour chaque risque identifié, nomme le risque, et le plan de mitigation si il y'en a un, et la source du risque."
     c = exec.bedrock.converse(model_id="mistral.mistral-large-2407-v1:0",
                               messages=[ConverseMessage.make_user_message(test_prompt)], max_tokens=4096)
     return c.content[0].text
